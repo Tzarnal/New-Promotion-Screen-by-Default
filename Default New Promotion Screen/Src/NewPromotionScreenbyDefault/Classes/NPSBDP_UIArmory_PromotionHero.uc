@@ -1,5 +1,6 @@
 class NPSBDP_UIArmory_PromotionHero extends UIArmory_PromotionHero;
 
+//Override functions
 simulated function InitPromotion(StateObjectReference UnitRef, optional bool bInstantTransition)
 {
 	local UIArmory_PromotionHeroColumn Column;
@@ -84,6 +85,31 @@ simulated function InitPromotion(StateObjectReference UnitRef, optional bool bIn
 	// bsg-nlong (1.25.17): end
 }
 
+function bool CanPurchaseAbility(int Rank, int Branch, name AbilityName)
+{
+	local XComGameState_Unit UnitState;
+	local bool bHasTrainingCenter;
+
+	UnitState = GetUnit();
+	bHasTrainingCenter = `XCOMHQ.HasFacilityByName('RecoveryCenter');
+
+	//Don't allow non hero units to purchase abilities with AP without a training center
+	if(UnitState.HasPurchasedPerkAtRank(Rank) && !UnitState.IsResistanceHero() && !bHasTrainingCenter)
+	{
+		return false;
+	}
+		
+	//Don't allow non hero units to purchase abilities on the xcom perk row before getting a rankup perk
+	if(!UnitState.HasPurchasedPerkAtRank(Rank) && !UnitState.IsResistanceHero() && Branch >= 2 )
+	{
+		return false;
+	}
+
+	//Normal behaviour
+	return (Rank < UnitState.GetRank() && CanAffordAbility(Rank, Branch) && UnitState.MeetsAbilityPrerequisites(AbilityName));
+}
+
+//New functions
 simulated function string GetPromotionBlueprintTag(StateObjectReference UnitRef)
 {
 	local int i;
