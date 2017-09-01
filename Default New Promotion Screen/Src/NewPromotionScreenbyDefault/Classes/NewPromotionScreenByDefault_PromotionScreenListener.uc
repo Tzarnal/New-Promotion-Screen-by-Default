@@ -5,13 +5,13 @@ class NewPromotionScreenByDefault_PromotionScreenListener extends UIScreenListen
 event OnInit(UIScreen Screen)
 {			
 	local UIArmory_Promotion OriginalPromotionUI;
-	local UIArmory_PromotionHero HeroPromotionUI;
+	local UIArmory_PromotionHero CustomHeroPromotionUI;
 	local StateObjectReference UnitBeingPromoted;
 	local UIAfterAction AfterActionUI;
 			
 	if (UIArmory_Promotion(Screen) == none || UIArmory_PromotionHero(Screen) != none || UIArmory_PromotionPsiOp(Screen) != none)
 	{		
-		return;
+		return;		
 	}
 		
 	//Don't block the tutorial
@@ -21,16 +21,16 @@ event OnInit(UIScreen Screen)
 	}
 		
 	//Remove original screen	
-	Screen.Movie.Stack.Pop(Screen);
-	
+	Screen.Movie.Stack.Pop(Screen);	
+
 	//Convert Values
 	OriginalPromotionUI = UIArmory_Promotion(Screen);
 	UnitBeingPromoted = OriginalPromotionUI.UnitReference;
 	
 	//Create new screen		
-	HeroPromotionUI = Screen.Movie.Pres.Spawn(class'UIArmory_PromotionHero' );		
-	Screen.Movie.Stack.Push(HeroPromotionUI, Screen.Movie.Pres.Get3DMovie());	
-	HeroPromotionUI.InitPromotion(UnitBeingPromoted);
+	CustomHeroPromotionUI = Screen.Movie.Pres.Spawn(class'UIArmory_PromotionHero' );		
+	Screen.Movie.Stack.Push(CustomHeroPromotionUI, Screen.Movie.Pres.Get3DMovie());	
+	CustomHeroPromotionUI.InitPromotion(UnitBeingPromoted);
 
 	//Fix Post mission walkup 		
 	AfterActionUI = UIAfterAction(`SCREENSTACK.GetFirstInstanceOf(class'UIAfterAction'));
@@ -39,7 +39,7 @@ event OnInit(UIScreen Screen)
 	{
 		//AfterActionUI.MovePawns();
 		MovePawns(AfterActionUI, UnitBeingPromoted);
-	}		
+	}
 }
 
 function MovePawns(UIAfterAction AfterActionUI,StateObjectReference UnitBeingPromoted)
@@ -50,11 +50,27 @@ function MovePawns(UIAfterAction AfterActionUI,StateObjectReference UnitBeingPro
 
 	for(i = 0; i < AfterActionUI.XComHQ.Squad.Length; ++i)
 	{
+		if(AfterActionUI.XComHQ.Squad[i] == UnitBeingPromoted)
+		{
+			PlacementActor = AfterActionUI.GetPlacementActor(AfterActionUI.GetPawnLocationTag(AfterActionUI.XComHQ.Squad[i], GetPromotionBlueprintTag(AfterActionUI,UnitBeingPromoted) ) );
+			UnitPawn = AfterActionUI.UnitPawns[i];
+
+			if(UnitPawn != none && PlacementActor != none)
+			{						
+				UnitPawn.SetLocation(PlacementActor.Location);
+				GremlinPawn = `HQPRES.GetUIPawnMgr().GetCosmeticPawn(eInvSlot_SecondaryWeapon, UnitPawn.ObjectID);
+				if(GremlinPawn != none)
+					GremlinPawn.SetLocation(PlacementActor.Location);
+			}
+
+			continue;
+		}
+		
 		PlacementActor = AfterActionUI.GetPlacementActor(AfterActionUI.GetPawnLocationTag(AfterActionUI.XComHQ.Squad[i], AfterActionUI.m_strPawnLocationSlideawayIdentifier));
 		UnitPawn = AfterActionUI.UnitPawns[i];
 
 		if(UnitPawn != none && PlacementActor != none)
-		{
+		{						
 			UnitPawn.SetLocation(PlacementActor.Location);
 			GremlinPawn = `HQPRES.GetUIPawnMgr().GetCosmeticPawn(eInvSlot_SecondaryWeapon, UnitPawn.ObjectID);
 			if(GremlinPawn != none)
@@ -62,6 +78,31 @@ function MovePawns(UIAfterAction AfterActionUI,StateObjectReference UnitBeingPro
 		}
 	}
 	
+}
+
+simulated function string GetPromotionBlueprintTag(UIAfterAction AfterActionScreen, StateObjectReference UnitRef)
+{
+	local int i;
+	local XComGameState_Unit UnitState;
+
+	for(i = 0; i < AfterActionScreen.XComHQ.Squad.Length; ++i)
+	{
+		if(AfterActionScreen.XComHQ.Squad[i].ObjectID == UnitRef.ObjectID)
+		{
+			UnitState = XComGameState_Unit(`XCOMHISTORY.GetGameStateForObjectID(AfterActionScreen.XComHQ.Squad[i].ObjectID));
+			
+			if (UnitState.IsGravelyInjured())
+			{
+				return AfterActionScreen.UIBlueprint_PrefixHero_Wounded $ i;
+			}
+			else
+			{
+				return AfterActionScreen.UIBlueprint_PrefixHero $ i;
+			}						
+		}
+	}
+
+	return "";
 }
 
 event OnReceiveFocus(UIScreen Screen);
