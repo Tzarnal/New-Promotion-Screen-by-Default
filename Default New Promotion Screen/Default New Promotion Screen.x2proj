@@ -16,6 +16,9 @@
     <Folder Include="Src\NewPromotionScreenbyDefault\Classes\" />
   </ItemGroup>
   <ItemGroup>
+    <Content Include="Config\XComPromotionUIMod.ini">
+      <SubType>Content</SubType>
+    </Content>
     <Content Include="ReadMe.txt" />
     <Content Include="ModPreview.jpg" />
     <Content Include="Config\XComEditor.ini" />

@@ -1,5 +1,7 @@
 class NewPromotionScreenByDefault_PromotionScreenListener extends UIScreenListener;
 
+var StateObjectReference StoredUnitRef;
+
 // This event is triggered after a screen is initialized. This is called after
 // the visuals (if any) are loaded in Flash.
 event OnInit(UIScreen Screen)
@@ -26,7 +28,8 @@ event OnInit(UIScreen Screen)
 	//Convert Values
 	OriginalPromotionUI = UIArmory_Promotion(Screen);
 	UnitBeingPromoted = OriginalPromotionUI.UnitReference;
-	
+	StoredUnitRef = UnitBeingPromoted;
+
 	//Create new screen		
 	CustomHeroPromotionUI = Screen.Movie.Pres.Spawn(class'UIArmory_PromotionHero' );		
 	Screen.Movie.Stack.Push(CustomHeroPromotionUI, Screen.Movie.Pres.Get3DMovie());	
@@ -105,7 +108,33 @@ simulated function string GetPromotionBlueprintTag(UIAfterAction AfterActionScre
 	return "";
 }
 
-event OnReceiveFocus(UIScreen Screen);
+event OnReceiveFocus(UIScreen Screen)
+{		
+	local UIAfterAction AfterActionScreen;
+	local int i;
+
+	if(UIAfterAction(Screen) != none )
+	{		
+		return;		
+	}
+
+	AfterActionScreen = UIAfterAction(`SCREENSTACK.GetFirstInstanceOf(class'UIAfterAction'));
+	
+	if( AfterActionScreen == none )
+	{
+		return;
+	}
+	
+	for(i = 0; i < AfterActionScreen.XComHQ.Squad.Length; ++i)
+	{
+		if(AfterActionScreen.XComHQ.Squad[i].ObjectID == StoredUnitRef.ObjectID)
+		{
+			`HQPres.CAMLookAtNamedLocation(GetPromotionBlueprintTag(AfterActionScreen,StoredUnitRef), `HQINTERPTIME);	
+		}
+
+	}	
+}
+
 event OnLoseFocus(UIScreen Screen);
 event OnRemoved(UIScreen Screen);
 

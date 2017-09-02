@@ -1,4 +1,6 @@
-class NPSBDP_UIArmory_PromotionHero extends UIArmory_PromotionHero;
+class NPSBDP_UIArmory_PromotionHero extends UIArmory_PromotionHero config(PromotionUIMod);
+
+var config bool APRequiresTrainingCenter;
 
 //Override functions
 simulated function InitPromotion(StateObjectReference UnitRef, optional bool bInstantTransition)
@@ -88,13 +90,10 @@ simulated function InitPromotion(StateObjectReference UnitRef, optional bool bIn
 function bool CanPurchaseAbility(int Rank, int Branch, name AbilityName)
 {
 	local XComGameState_Unit UnitState;
-	local bool bHasTrainingCenter;
-
 	UnitState = GetUnit();
-	bHasTrainingCenter = `XCOMHQ.HasFacilityByName('RecoveryCenter');
 
 	//Don't allow non hero units to purchase abilities with AP without a training center
-	if(UnitState.HasPurchasedPerkAtRank(Rank) && !UnitState.IsResistanceHero() && !bHasTrainingCenter)
+	if(UnitState.HasPurchasedPerkAtRank(Rank) && !UnitState.IsResistanceHero() && !CanSpendAP())
 	{
 		return false;
 	}
@@ -133,4 +132,12 @@ simulated function string GetPromotionBlueprintTag(StateObjectReference UnitRef)
 	}
 
 	return "";
+}
+
+function bool CanSpendAP()
+{
+	if(APRequiresTrainingCenter == false)
+		return true;
+	
+	return `XCOMHQ.HasFacilityByName('RecoveryCenter');
 }
