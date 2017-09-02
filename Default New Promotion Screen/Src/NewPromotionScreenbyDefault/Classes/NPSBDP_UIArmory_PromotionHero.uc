@@ -6,9 +6,17 @@ struct CustomClassAbilitiesPerRank
 	var int AbilitiesPerRank;
 };
 
+struct CustomClassAbilityCost
+{
+	var name ClassName;
+	var name AbilityName;
+	var int AbilityCost;
+};
+
 var config bool APRequiresTrainingCenter;
 
 var config array<CustomClassAbilitiesPerRank> ClassAbilitiesPerRank;
+var config array<CustomClassAbilityCost> ClassCustomAbilityCost;
 
 //Override functions
 simulated function InitPromotion(StateObjectReference UnitRef, optional bool bInstantTransition)
@@ -133,6 +141,7 @@ function int GetAbilityPointCost(int Rank, int Branch)
 	local bool bPowerfulAbility;
 	local int AbilityRanks; //Rank is 0 indexed but AbilityRanks is not. This means a >= comparison requies no further adjustments
 	local Name ClassName;
+	local int AbilityCost;
 
 	UnitState = GetUnit();
 	AbilityTree = UnitState.GetRankAbilities(Rank);	
@@ -145,6 +154,21 @@ function int GetAbilityPointCost(int Rank, int Branch)
 		AbilityRanks = GetCustomAbilitiesPerRank(ClassName);
 	}
 
+	//Default ability cost
+	AbilityCost = class'X2StrategyGameRulesetDataStructures'.default.AbilityPointCosts[Rank];
+
+	//Powerfull ability override ( 25 AP )
+	if(bPowerfulAbility)
+	{
+		AbilityCost = class'X2StrategyGameRulesetDataStructures'.default.PowerfulAbilityPointCost;
+	}
+
+	//Custom Class Ability Cost Override
+	if( HasCustomAbilityCost(ClassName, AbilityTree[Branch].AbilityName) )
+	{
+		AbilityCost = GetCustomAbilityCost(ClassName, AbilityTree[Branch].AbilityName);
+	}
+
 	if (!UnitState.IsResistanceHero())
 	{
 		if (!UnitState.HasPurchasedPerkAtRank(Rank) && Branch < AbilityRanks)
@@ -153,12 +177,12 @@ function int GetAbilityPointCost(int Rank, int Branch)
 			// free promotion ability if they "bought" it through the Armory
 			return 0;
 		}
-		else if (bPowerfulAbility && Branch >= AbilityRanks)
+		/*else if (bPowerfulAbility && Branch >= AbilityRanks)
 		{
 			// All powerful shared AWC abilities for base game soldiers have an increased cost, 
 			// excluding any abilities they have in their normal progression tree
 			return class'X2StrategyGameRulesetDataStructures'.default.PowerfulAbilityPointCost;
-		}
+		}*/
 	}
 
 	// All Colonel level abilities for Faction Heroes and any powerful XCOM abilities have increased cost for Faction Heroes
@@ -167,7 +191,7 @@ function int GetAbilityPointCost(int Rank, int Branch)
 		return class'X2StrategyGameRulesetDataStructures'.default.PowerfulAbilityPointCost;
 	}
 	
-	return class'X2StrategyGameRulesetDataStructures'.default.AbilityPointCosts[Rank];
+	return AbilityCost;
 }
 
 //New functions
@@ -208,22 +232,14 @@ function bool HasCustomAbilitiesPerRank(name ClassName)
 {
 	local int i;
 
-	`log("NPSBDP: Starting Custom class Search");
-	`log(ClassAbilitiesPerRank.Length);
-
 	for(i = 0; i < ClassAbilitiesPerRank.Length; ++i)
-	{
-		`log("NPSBDP: ");
-		`log(ClassAbilitiesPerRank[i].ClassName);
-				
+	{				
 		if(ClassAbilitiesPerRank[i].ClassName == ClassName)
 		{
-			`log("NPSBDP: Returning true");
 			return true;
 		}
 	}
 
-	`log("NPSBDP: Returning false");
 	return false;
 }
 
@@ -240,4 +256,34 @@ function int GetCustomAbilitiesPerRank(name ClassName)
 	
 	}
 	return 2;
+}
+
+function bool HasCustomAbilityCost(name ClassName, name AbilityName)
+{
+	local int i;
+
+	for(i = 0; i < ClassCustomAbilityCost.Length; ++i)
+	{				
+		if(ClassCustomAbilityCost[i].ClassName == ClassName && ClassCustomAbilityCost[i].AbilityName == AbilityName)
+		{
+			return true;
+		}
+	}
+
+	return false;
+}
+
+function int GetCustomAbilityCost(name ClassName, name AbilityName)
+{
+	local int i;
+
+	for(i = 0; i < ClassCustomAbilityCost.Length; ++i)
+	{
+		if(ClassCustomAbilityCost[i].ClassName == ClassName && ClassCustomAbilityCost[i].AbilityName == AbilityName)
+		{
+			return ClassCustomAbilityCost[i].AbilityCost;
+		}
+	
+	}
+	return 10;
 }
