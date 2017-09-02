@@ -107,15 +107,14 @@ function bool CanPurchaseAbility(int Rank, int Branch, name AbilityName)
 {
 	local XComGameState_Unit UnitState;
 	local int AbilityRanks; //Rank is 0 indexed but AbilityRanks is not. This means a >= comparison requies no further adjustments
-	local Name ClassName;
-
+	
 	UnitState = GetUnit();
-	AbilityRanks = 2;
-	ClassName = UnitState.GetSoldierClassTemplateName();
+	AbilityRanks = GetAbilitiesPerRank(UnitState);
 
-	if( HasCustomAbilitiesPerRank(ClassName) )
-	{
-		AbilityRanks = GetCustomAbilitiesPerRank(ClassName);
+	//Emulate Resistance Hero behaviour
+	if(AbilityRanks == 0)
+	{		
+		return (Rank < UnitState.GetRank() && CanAffordAbility(Rank, Branch) && UnitState.MeetsAbilityPrerequisites(AbilityName));
 	}
 
 	//Don't allow non hero units to purchase abilities with AP without a training center
@@ -147,12 +146,9 @@ function int GetAbilityPointCost(int Rank, int Branch)
 	AbilityTree = UnitState.GetRankAbilities(Rank);	
 	bPowerfulAbility = (class'X2StrategyGameRulesetDataStructures'.default.PowerfulAbilities.Find(AbilityTree[Branch].AbilityName) != INDEX_NONE);
 	AbilityRanks = 2;
-	ClassName = UnitState.GetSoldierClassTemplateName();
-	
-	if( HasCustomAbilitiesPerRank(ClassName) )
-	{
-		AbilityRanks = GetCustomAbilitiesPerRank(ClassName);
-	}
+	ClassName = UnitState.GetSoldierClassTemplateName();	
+	AbilityRanks = GetAbilitiesPerRank(UnitState);
+
 
 	//Default ability cost
 	AbilityCost = class'X2StrategyGameRulesetDataStructures'.default.AbilityPointCosts[Rank];
@@ -169,7 +165,7 @@ function int GetAbilityPointCost(int Rank, int Branch)
 		AbilityCost = GetCustomAbilityCost(ClassName, AbilityTree[Branch].AbilityName);
 	}
 
-	if (!UnitState.IsResistanceHero())
+	if (!UnitState.IsResistanceHero() && AbilityRanks != 0)
 	{
 		if (!UnitState.HasPurchasedPerkAtRank(Rank) && Branch < AbilityRanks)
 		{
@@ -183,6 +179,12 @@ function int GetAbilityPointCost(int Rank, int Branch)
 			// excluding any abilities they have in their normal progression tree
 			return class'X2StrategyGameRulesetDataStructures'.default.PowerfulAbilityPointCost;
 		}*/
+	}
+
+	// All Colonel level abilities for emulated Faction Heroes and any powerful XCOM abilities have increased cost for Faction Heroes
+	if (AbilityRanks == 0 && (bPowerfulAbility || (Rank >= 6 && Branch < 3)))
+	{
+		return class'X2StrategyGameRulesetDataStructures'.default.PowerfulAbilityPointCost;
 	}
 
 	// All Colonel level abilities for Faction Heroes and any powerful XCOM abilities have increased cost for Faction Heroes
@@ -211,6 +213,7 @@ simulated function string GetPromotionBlueprintTag(StateObjectReference UnitRef)
 				return AfterActionScreen.UIBlueprint_PrefixHero_Wounded $ i;
 			}
 			else
+		
 			{
 				return AfterActionScreen.UIBlueprint_PrefixHero $ i;
 			}						
@@ -226,6 +229,39 @@ function bool CanSpendAP()
 		return true;
 	
 	return `XCOMHQ.HasFacilityByName('RecoveryCenter');
+}
+
+function int GetAbilitiesPerRank(XComGameState_Unit UnitState)
+{
+	local Name ClassName;
+    local int AbilitiesPerRank, RankIndex;
+	local bool bAWC;
+	local X2SoldierClassTemplate ClassTemplate;
+
+	ClassName = UnitState.GetSoldierClassTemplateName();	
+
+	if( HasCustomAbilitiesPerRank(ClassName) )
+	{
+		return GetCustomAbilitiesPerRank(ClassName);
+	}
+
+	ClassTemplate = UnitState.GetSoldierClassTemplate();
+	bAWC = ClassTemplate.bAllowAWCAbilities;
+
+	for(RankIndex = 1; RankIndex < ClassTemplate.GetMaxConfiguredRank(); RankIndex++)
+	{
+		if(ClassTemplate.GetAbilitySlots(RankIndex).Length > AbilitiesPerRank)
+		{
+			AbilitiesPerRank = ClassTemplate.GetAbilitySlots(RankIndex).Length;
+		}
+	}
+	
+	if(bAWC && AbilitiesPerRank == 4)
+	{
+		return 3;
+	}
+
+	return AbilitiesPerRank;
 }
 
 function bool HasCustomAbilitiesPerRank(name ClassName)
