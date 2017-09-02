@@ -1,6 +1,14 @@
 class NPSBDP_UIArmory_PromotionHero extends UIArmory_PromotionHero config(PromotionUIMod);
 
+struct CustomClassAbilitiesPerRank
+{
+	var name ClassName;
+	var int AbilitiesPerRank;
+};
+
 var config bool APRequiresTrainingCenter;
+
+var config array<CustomClassAbilitiesPerRank> ClassAbilitiesPerRank;
 
 //Override functions
 simulated function InitPromotion(StateObjectReference UnitRef, optional bool bInstantTransition)
@@ -90,7 +98,17 @@ simulated function InitPromotion(StateObjectReference UnitRef, optional bool bIn
 function bool CanPurchaseAbility(int Rank, int Branch, name AbilityName)
 {
 	local XComGameState_Unit UnitState;
+	local int AbilityRanks; //Rank is 0 indexed but AbilityRanks is not. This means a >= comparison requies no further adjustments
+	local Name ClassName;
+
 	UnitState = GetUnit();
+	AbilityRanks = 2;
+	ClassName = UnitState.GetSoldierClassTemplateName();
+
+	if( HasCustomAbilitiesPerRank(ClassName) )
+	{
+		AbilityRanks = GetCustomAbilitiesPerRank(ClassName);
+	}
 
 	//Don't allow non hero units to purchase abilities with AP without a training center
 	if(UnitState.HasPurchasedPerkAtRank(Rank) && !UnitState.IsResistanceHero() && !CanSpendAP())
@@ -99,13 +117,57 @@ function bool CanPurchaseAbility(int Rank, int Branch, name AbilityName)
 	}
 		
 	//Don't allow non hero units to purchase abilities on the xcom perk row before getting a rankup perk
-	if(!UnitState.HasPurchasedPerkAtRank(Rank) && !UnitState.IsResistanceHero() && Branch >= 2 )
+	if(!UnitState.HasPurchasedPerkAtRank(Rank) && !UnitState.IsResistanceHero() && Branch >= AbilityRanks )
 	{
 		return false;
 	}
 
 	//Normal behaviour
 	return (Rank < UnitState.GetRank() && CanAffordAbility(Rank, Branch) && UnitState.MeetsAbilityPrerequisites(AbilityName));
+}
+
+function int GetAbilityPointCost(int Rank, int Branch)
+{
+	local XComGameState_Unit UnitState;
+	local array<SoldierClassAbilityType> AbilityTree;
+	local bool bPowerfulAbility;
+	local int AbilityRanks; //Rank is 0 indexed but AbilityRanks is not. This means a >= comparison requies no further adjustments
+	local Name ClassName;
+
+	UnitState = GetUnit();
+	AbilityTree = UnitState.GetRankAbilities(Rank);	
+	bPowerfulAbility = (class'X2StrategyGameRulesetDataStructures'.default.PowerfulAbilities.Find(AbilityTree[Branch].AbilityName) != INDEX_NONE);
+	AbilityRanks = 2;
+	ClassName = UnitState.GetSoldierClassTemplateName();
+	
+	if( HasCustomAbilitiesPerRank(ClassName) )
+	{
+		AbilityRanks = GetCustomAbilitiesPerRank(ClassName);
+	}
+
+	if (!UnitState.IsResistanceHero())
+	{
+		if (!UnitState.HasPurchasedPerkAtRank(Rank) && Branch < AbilityRanks)
+		{
+			// If this is a base game soldier with a promotion available, ability costs nothing since it would be their
+			// free promotion ability if they "bought" it through the Armory
+			return 0;
+		}
+		else if (bPowerfulAbility && Branch >= AbilityRanks)
+		{
+			// All powerful shared AWC abilities for base game soldiers have an increased cost, 
+			// excluding any abilities they have in their normal progression tree
+			return class'X2StrategyGameRulesetDataStructures'.default.PowerfulAbilityPointCost;
+		}
+	}
+
+	// All Colonel level abilities for Faction Heroes and any powerful XCOM abilities have increased cost for Faction Heroes
+	if (UnitState.IsResistanceHero() && (bPowerfulAbility || (Rank >= 6 && Branch < 3)))
+	{
+		return class'X2StrategyGameRulesetDataStructures'.default.PowerfulAbilityPointCost;
+	}
+	
+	return class'X2StrategyGameRulesetDataStructures'.default.AbilityPointCosts[Rank];
 }
 
 //New functions
@@ -140,4 +202,42 @@ function bool CanSpendAP()
 		return true;
 	
 	return `XCOMHQ.HasFacilityByName('RecoveryCenter');
+}
+
+function bool HasCustomAbilitiesPerRank(name ClassName)
+{
+	local int i;
+
+	`log("NPSBDP: Starting Custom class Search");
+	`log(ClassAbilitiesPerRank.Length);
+
+	for(i = 0; i < ClassAbilitiesPerRank.Length; ++i)
+	{
+		`log("NPSBDP: ");
+		`log(ClassAbilitiesPerRank[i].ClassName);
+				
+		if(ClassAbilitiesPerRank[i].ClassName == ClassName)
+		{
+			`log("NPSBDP: Returning true");
+			return true;
+		}
+	}
+
+	`log("NPSBDP: Returning false");
+	return false;
+}
+
+function int GetCustomAbilitiesPerRank(name ClassName)
+{
+	local int i;
+
+	for(i = 0; i < ClassAbilitiesPerRank.Length; ++i)
+	{
+		if(ClassAbilitiesPerRank[i].ClassName == ClassName)
+		{
+			return ClassAbilitiesPerRank[i].AbilitiesPerRank;
+		}
+	
+	}
+	return 2;
 }
