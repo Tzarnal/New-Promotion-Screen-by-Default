@@ -55,7 +55,7 @@ function MovePawns(UIAfterAction AfterActionUI,StateObjectReference UnitBeingPro
 	{
 		if(AfterActionUI.XComHQ.Squad[i] == UnitBeingPromoted)
 		{
-			PlacementActor = AfterActionUI.GetPlacementActor(AfterActionUI.GetPawnLocationTag(AfterActionUI.XComHQ.Squad[i], GetPromotionBlueprintTag(AfterActionUI,UnitBeingPromoted) ) );
+			PlacementActor = AfterActionUI.GetPlacementActor(AfterActionUI.GetPawnLocationTag(AfterActionUI.XComHQ.Squad[i], GetPromotionBlueprintTag(AfterActionUI,UnitBeingPromoted) ) );			
 			UnitPawn = AfterActionUI.UnitPawns[i];
 
 			if(UnitPawn != none && PlacementActor != none)
@@ -63,7 +63,10 @@ function MovePawns(UIAfterAction AfterActionUI,StateObjectReference UnitBeingPro
 				UnitPawn.SetLocation(PlacementActor.Location);
 				GremlinPawn = `HQPRES.GetUIPawnMgr().GetCosmeticPawn(eInvSlot_SecondaryWeapon, UnitPawn.ObjectID);
 				if(GremlinPawn != none)
+				{					
 					GremlinPawn.SetLocation(PlacementActor.Location);
+				}
+					
 			}
 
 			continue;

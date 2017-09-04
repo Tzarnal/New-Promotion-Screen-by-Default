@@ -14,6 +14,7 @@ struct CustomClassAbilityCost
 };
 
 var config bool APRequiresTrainingCenter;
+var config bool RevealAllAbilities;
 
 var config array<CustomClassAbilitiesPerRank> ClassAbilitiesPerRank;
 var config array<CustomClassAbilityCost> ClassCustomAbilityCost;
@@ -194,6 +195,194 @@ function int GetAbilityPointCost(int Rank, int Branch)
 	}
 	
 	return AbilityCost;
+}
+
+function bool UpdateAbilityIcons(out UIArmory_PromotionHeroColumn Column)
+{
+	local X2AbilityTemplateManager AbilityTemplateManager;
+	local X2AbilityTemplate AbilityTemplate, NextAbilityTemplate;
+	local array<SoldierClassAbilityType> AbilityTree, NextRankTree;
+	local XComGameState_Unit Unit;
+	local UIPromotionButtonState ButtonState;
+	local int iAbility;
+	local bool bHasColumnAbility, bConnectToNextAbility;
+	local string AbilityName, AbilityIcon, BGColor, FGColor;
+
+	AbilityTemplateManager = class'X2AbilityTemplateManager'.static.GetAbilityTemplateManager();
+	Unit = GetUnit();
+	AbilityTree = Unit.GetRankAbilities(Column.Rank);
+
+	for (iAbility = 0; iAbility < NUM_ABILITIES_PER_COLUMN; iAbility++)
+	{
+		AbilityTemplate = AbilityTemplateManager.FindAbilityTemplate(AbilityTree[iAbility].AbilityName);
+		if (AbilityTemplate != none)
+		{
+			if (Column.AbilityNames.Find(AbilityTemplate.DataName) == INDEX_NONE)
+			{
+				Column.AbilityNames.AddItem(AbilityTemplate.DataName);
+			}
+
+			// The unit is not yet at the rank needed for this column
+			if (!RevealAllAbilities && Column.Rank >= Unit.GetRank())
+			{
+				AbilityName = class'UIUtilities_Text'.static.GetColoredText(m_strAbilityLockedTitle, eUIState_Disabled);
+				AbilityIcon = class'UIUtilities_Image'.const.UnknownAbilityIcon;
+				ButtonState = eUIPromotionState_Locked;
+				FGColor = class'UIUtilities_Colors'.const.BLACK_HTML_COLOR;
+				BGColor = class'UIUtilities_Colors'.const.DISABLED_HTML_COLOR;
+				bConnectToNextAbility = false; // Do not display prereqs for abilities which aren't available yet
+			}
+			else // The ability could be purchased
+			{
+				AbilityName = class'UIUtilities_Text'.static.CapsCheckForGermanScharfesS(AbilityTemplate.LocFriendlyName);
+				AbilityIcon = AbilityTemplate.IconImage;
+
+				if (Unit.HasSoldierAbility(AbilityTemplate.DataName))
+				{
+					// The ability has been purchased
+					ButtonState = eUIPromotionState_Equipped;
+					FGColor = class'UIUtilities_Colors'.const.NORMAL_HTML_COLOR;
+					BGColor = class'UIUtilities_Colors'.const.BLACK_HTML_COLOR;
+					bHasColumnAbility = true;
+				}
+				else if(CanPurchaseAbility(Column.Rank, iAbility, AbilityTemplate.DataName))
+				{
+					// The ability is unlocked and unpurchased, and can be afforded
+					ButtonState = eUIPromotionState_Normal;
+					FGColor = class'UIUtilities_Colors'.const.PERK_HTML_COLOR;
+					BGColor = class'UIUtilities_Colors'.const.BLACK_HTML_COLOR;
+				}
+				else
+				{
+					// The ability is unlocked and unpurchased, but cannot be afforded
+					ButtonState = eUIPromotionState_Normal;
+					FGColor = class'UIUtilities_Colors'.const.BLACK_HTML_COLOR;
+					BGColor = class'UIUtilities_Colors'.const.DISABLED_HTML_COLOR;
+				}
+				
+				// Look ahead to the next rank and check to see if the current ability is a prereq for the next one
+				// If so, turn on the connection arrow between them
+				if (Column.Rank < (class'X2ExperienceConfig'.static.GetMaxRank() - 2) && Unit.GetRank() > (Column.Rank + 1))
+				{
+					bConnectToNextAbility = false;
+					NextRankTree = Unit.GetRankAbilities(Column.Rank + 1);
+					NextAbilityTemplate = AbilityTemplateManager.FindAbilityTemplate(NextRankTree[iAbility].AbilityName);
+					if (NextAbilityTemplate.PrerequisiteAbilities.Length > 0 && NextAbilityTemplate.PrerequisiteAbilities.Find(AbilityTemplate.DataName) != INDEX_NONE)
+					{
+						bConnectToNextAbility = true;
+					}
+				}
+
+				Column.SetAvailable(true);
+			}
+
+			Column.AS_SetIconState(iAbility, false, AbilityIcon, AbilityName, ButtonState, FGColor, BGColor, bConnectToNextAbility);
+		}
+		else
+		{
+			Column.AbilityNames.AddItem(''); // Make sure we add empty spots to the name array for getting ability info
+		}
+	}
+
+	// bsg-nlong (1.25.17): Select the first available/visible ability in the column
+	while(`ISCONTROLLERACTIVE && !Column.AbilityIcons[Column.m_iPanelIndex].bIsVisible)
+	{
+		Column.m_iPanelIndex +=1;
+		if( Column.m_iPanelIndex >= Column.AbilityIcons.Length )
+		{
+			Column.m_iPanelIndex = 0;
+		}
+	}
+	// bsg-nlong (1.25.17): end
+
+	return bHasColumnAbility;
+}
+
+function PreviewAbility(int Rank, int Branch)
+{
+	local X2AbilityTemplateManager AbilityTemplateManager;
+	local X2AbilityTemplate AbilityTemplate, PreviousAbilityTemplate;
+	local XComGameState_Unit Unit;
+	local array<SoldierClassAbilityType> AbilityTree;
+	local string AbilityIcon, AbilityName, AbilityDesc, AbilityHint, AbilityCost, CostLabel, APLabel, PrereqAbilityNames;
+	local name PrereqAbilityName;
+
+	Unit = GetUnit();
+	
+	// Ability cost is always displayed, even if the rank hasn't been unlocked yet
+	CostLabel = m_strCostLabel;
+	APLabel = m_strAPLabel;
+	AbilityCost = string(GetAbilityPointCost(Rank, Branch));
+	if (!CanAffordAbility(Rank, Branch))
+	{
+		AbilityCost = class'UIUtilities_Text'.static.GetColoredText(AbilityCost, eUIState_Bad);
+	}
+		
+	if (!RevealAllAbilities && Rank >= Unit.GetRank())
+	{
+		AbilityIcon = class'UIUtilities_Image'.const.LockedAbilityIcon;
+		AbilityName = class'UIUtilities_Text'.static.GetColoredText(m_strAbilityLockedTitle, eUIState_Disabled);
+		AbilityDesc = class'UIUtilities_Text'.static.GetColoredText(m_strAbilityLockedDescription, eUIState_Disabled);
+
+		// Don't display cost information for abilities which have not been unlocked yet
+		CostLabel = "";
+		AbilityCost = "";
+		APLabel = "";
+	}
+	else
+	{		
+		AbilityTemplateManager = class'X2AbilityTemplateManager'.static.GetAbilityTemplateManager();
+		AbilityTree = Unit.GetRankAbilities(Rank);
+		AbilityTemplate = AbilityTemplateManager.FindAbilityTemplate(AbilityTree[Branch].AbilityName);
+
+		if (AbilityTemplate != none)
+		{
+			AbilityIcon = AbilityTemplate.IconImage;
+			AbilityName = AbilityTemplate.LocFriendlyName != "" ? AbilityTemplate.LocFriendlyName : ("Missing 'LocFriendlyName' for " $ AbilityTemplate.DataName);
+			AbilityDesc = AbilityTemplate.HasLongDescription() ? AbilityTemplate.GetMyLongDescription(, Unit) : ("Missing 'LocLongDescription' for " $ AbilityTemplate.DataName);
+			AbilityHint = "";
+
+			// Don't display cost information if the ability has already been purchased
+			if (Unit.HasSoldierAbility(AbilityTemplate.DataName))
+			{
+				CostLabel = "";
+				AbilityCost = "";
+				APLabel = "";
+			}
+			else if (AbilityTemplate.PrerequisiteAbilities.Length > 0)
+			{
+				// Look back to the previous rank and check to see if that ability is a prereq for this one
+				// If so, display a message warning the player that there is a prereq
+				foreach AbilityTemplate.PrerequisiteAbilities(PrereqAbilityName)
+				{
+					PreviousAbilityTemplate = AbilityTemplateManager.FindAbilityTemplate(PrereqAbilityName);
+					if (PreviousAbilityTemplate != none && !Unit.HasSoldierAbility(PrereqAbilityName))
+					{
+						if (PrereqAbilityNames != "")
+						{
+							PrereqAbilityNames $= ", ";
+						}
+						PrereqAbilityNames $= PreviousAbilityTemplate.LocFriendlyName;
+					}
+				}
+				PrereqAbilityNames = class'UIUtilities_Text'.static.FormatCommaSeparatedNouns(PrereqAbilityNames);
+
+				if (PrereqAbilityNames != "")
+				{
+					AbilityDesc = class'UIUtilities_Text'.static.GetColoredText(m_strPrereqAbility @ PrereqAbilityNames, eUIState_Warning) $ "\n" $ AbilityDesc;
+				}
+			}
+		}
+		else
+		{
+			AbilityIcon = "";
+			AbilityName = string(AbilityTree[Branch].AbilityName);
+			AbilityDesc = "Missing template for ability '" $ AbilityTree[Branch].AbilityName $ "'";
+			AbilityHint = "";
+		}		
+	}
+	`Log("------------------------------------");
+	AS_SetDescriptionData(AbilityIcon, AbilityName, AbilityDesc, AbilityHint, CostLabel, AbilityCost, APLabel);
 }
 
 //New functions
