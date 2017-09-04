@@ -380,8 +380,7 @@ function PreviewAbility(int Rank, int Branch)
 			AbilityDesc = "Missing template for ability '" $ AbilityTree[Branch].AbilityName $ "'";
 			AbilityHint = "";
 		}		
-	}
-	`Log("------------------------------------");
+	}	
 	AS_SetDescriptionData(AbilityIcon, AbilityName, AbilityDesc, AbilityHint, CostLabel, AbilityCost, APLabel);
 }
 
