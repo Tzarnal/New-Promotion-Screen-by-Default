@@ -114,6 +114,7 @@ simulated function string GetPromotionBlueprintTag(UIAfterAction AfterActionScre
 event OnReceiveFocus(UIScreen Screen)
 {		
 	local UIAfterAction AfterActionScreen;
+	local UIArmory_PromotionHero HeroScreen;
 	local int i;
 
 	if(UIAfterAction(Screen) != none )
@@ -128,6 +129,13 @@ event OnReceiveFocus(UIScreen Screen)
 		return;
 	}
 	
+	HeroScreen = UIArmory_PromotionHero(`SCREENSTACK.GetFirstInstanceOf(class'UIArmory_PromotionHero'));
+
+	if( AfterActionScreen == none )
+	{
+		return;
+	}
+
 	for(i = 0; i < AfterActionScreen.XComHQ.Squad.Length; ++i)
 	{
 		if(AfterActionScreen.XComHQ.Squad[i].ObjectID == StoredUnitRef.ObjectID)
