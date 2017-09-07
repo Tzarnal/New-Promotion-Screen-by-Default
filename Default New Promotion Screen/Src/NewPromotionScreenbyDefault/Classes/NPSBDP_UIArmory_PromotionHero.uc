@@ -155,7 +155,7 @@ function int GetAbilityPointCost(int Rank, int Branch)
 	AbilityCost = class'X2StrategyGameRulesetDataStructures'.default.AbilityPointCosts[Rank];
 
 	//Powerfull ability override ( 25 AP )
-	if(bPowerfulAbility)
+	if(bPowerfulAbility && Branch >= AbilityRanks)
 	{
 		AbilityCost = class'X2StrategyGameRulesetDataStructures'.default.PowerfulAbilityPointCost;
 	}
