@@ -19,11 +19,244 @@ var config bool RevealAllAbilities;
 var config array<CustomClassAbilitiesPerRank> ClassAbilitiesPerRank;
 var config array<CustomClassAbilityCost> ClassCustomAbilityCost;
 
+var int Page;
+
 //Override functions
+simulated function bool OnUnrealCommand(int cmd, int arg)
+{
+	if (!CheckInputIsReleaseOrDirectionRepeat(cmd, arg))
+	{
+		return false;
+	}
+
+	switch(Cmd)
+	{
+		case class'UIUtilities_Input'.const.FXS_ARROW_UP:
+		case class'UIUtilities_Input'.const.FXS_DPAD_UP:
+		case class'UIUtilities_Input'.const.FXS_VIRTUAL_LSTICK_UP:
+			if (Page > 1)
+			{
+				Page -= 1;
+				PopulateData();
+			}
+			break;
+		case class'UIUtilities_Input'.const.FXS_ARROW_DOWN:
+		case class'UIUtilities_Input'.const.FXS_DPAD_DOWN:
+		case class'UIUtilities_Input'.const.FXS_VIRTUAL_LSTICK_DOWN:
+			if (Page < 3)
+			{
+				Page += 1;
+				PopulateData();
+			}
+			break;
+	}
+
+	super.OnUnrealCommand(cmd, arg);
+}
+
+simulated function PopulateData()
+{
+	local XComGameState_Unit Unit;
+	local X2SoldierClassTemplate ClassTemplate;
+	local UIArmory_PromotionHeroColumn Column;
+	local string HeaderString, rankIcon, classIcon;
+	local int iRank, maxRank;
+	local bool bHasColumnAbility, bHighlightColumn;
+	local Vector ZeroVec;
+	local Rotator UseRot;
+	local XComUnitPawn UnitPawn;
+	local XComGameState_ResistanceFaction FactionState;
+	local XComGameState_HeadquartersXCom XComHQ;
+	local XComGameState NewGameState;
+	
+	Unit = GetUnit();
+	ClassTemplate = Unit.GetSoldierClassTemplate();
+
+	FactionState = Unit.GetResistanceFaction();
+	
+	rankIcon = class'UIUtilities_Image'.static.GetRankIcon(Unit.GetRank(), ClassTemplate.DataName);
+	classIcon = ClassTemplate.IconImage;
+
+	HeaderString = m_strAbilityHeader;
+	if (Unit.GetRank() != 1 && Unit.HasAvailablePerksToAssign())
+	{
+		HeaderString = m_strSelectAbility;
+	}
+
+	XComHQ = XComGameState_HeadquartersXCom(`XCOMHISTORY.GetSingleGameStateObjectForClass(class'XComGameState_HeadquartersXCom'));
+	if (Unit.IsResistanceHero() && !XComHQ.bHasSeenHeroPromotionScreen)
+	{
+		NewGameState = class'XComGameStateContext_ChangeContainer'.static.CreateChangeState("Trigger Opened Hero Promotion Screen");
+		XComHQ = XComGameState_HeadquartersXCom(NewGameState.ModifyStateObject(class'XComGameState_HeadquartersXCom', XComHQ.ObjectID));
+		XComHQ.bHasSeenHeroPromotionScreen = true;
+		`XEVENTMGR.TriggerEvent('OnHeroPromotionScreen', , , NewGameState);
+		`XCOMGAME.GameRuleset.SubmitGameState(NewGameState);
+	}
+	else if (Unit.GetRank() >= 2 && Unit.ComInt >= eComInt_Gifted)
+	{
+		// Check to see if Unit has high combat intelligence, display tutorial popup if so
+		`HQPRES.UICombatIntelligenceIntro(Unit.GetReference());
+	}
+
+	if (ActorPawn == none || (Unit.GetRank() == 1 && bAfterActionPromotion)) //This condition is TRUE when in the after action report, and we need to rank someone up to squaddie
+	{
+		//Get the current pawn so we can extract its rotation
+		UnitPawn = Movie.Pres.GetUIPawnMgr().RequestPawnByID(AfterActionScreen, UnitReference.ObjectID, ZeroVec, UseRot);
+		UseRot = UnitPawn.Rotation;
+
+		//Free the existing pawn, and then create the ranked up pawn. This may not be strictly necessary since most of the differences between the classes are in their equipment. However, it is easy to foresee
+		//having class specific soldier content and this covers that possibility
+		Movie.Pres.GetUIPawnMgr().ReleasePawn(AfterActionScreen, UnitReference.ObjectID);
+		CreateSoldierPawn(UseRot);
+
+		if (bAfterActionPromotion && !Unit.bCaptured)
+		{
+			//Let the pawn manager know that the after action report is referencing this pawn too			
+			UnitPawn = Movie.Pres.GetUIPawnMgr().RequestPawnByID(AfterActionScreen, UnitReference.ObjectID, ZeroVec, UseRot);
+			AfterActionScreen.SetPawn(UnitReference, UnitPawn);
+		}
+	}
+
+	AS_SetRank(rankIcon);
+	AS_SetClass(classIcon);
+	AS_SetFaction(FactionState.GetFactionIcon());
+
+	AS_SetHeaderData(Caps(FactionState.GetFactionTitle()), Caps(Unit.GetName(eNameType_FullNick)), HeaderString, m_strSharedAPLabel, m_strSoldierAPLabel);
+	AS_SetAPData(GetSharedAbilityPoints(), Unit.AbilityPoints);
+	AS_SetCombatIntelData(Unit.GetCombatIntelligenceLabel());
+	
+	AS_SetPathLabels(
+		m_strBranchesLabel,
+		ClassTemplate.AbilityTreeTitles[0 + (Page - 1) * NUM_ABILITIES_PER_COLUMN],
+		ClassTemplate.AbilityTreeTitles[1 + (Page - 1) * NUM_ABILITIES_PER_COLUMN],
+		ClassTemplate.AbilityTreeTitles[2 + (Page - 1) * NUM_ABILITIES_PER_COLUMN],
+		ClassTemplate.AbilityTreeTitles[3 + (Page - 1) * NUM_ABILITIES_PER_COLUMN]
+	);
+
+	maxRank = class'X2ExperienceConfig'.static.GetMaxRank();
+
+	for (iRank = 0; iRank < (maxRank - 1); ++iRank)
+	{
+		Column = Columns[iRank];
+		bHasColumnAbility = UpdateAbilityIcons(Column);
+		bHighlightColumn = (!bHasColumnAbility && (iRank+1) == Unit.GetRank());
+
+		Column.AS_SetData(bHighlightColumn, m_strNewRank, class'UIUtilities_Image'.static.GetRankIcon(iRank+1, ClassTemplate.DataName), Caps(class'X2ExperienceConfig'.static.GetRankName(iRank+1, ClassTemplate.DataName)));
+	}
+
+	HidePreview();
+}
+
+function bool UpdateAbilityIcons(out UIArmory_PromotionHeroColumn Column)
+{
+	local X2AbilityTemplateManager AbilityTemplateManager;
+	local X2AbilityTemplate AbilityTemplate, NextAbilityTemplate;
+	local array<SoldierClassAbilityType> AbilityTree, NextRankTree;
+	local XComGameState_Unit Unit;
+	local UIPromotionButtonState ButtonState;
+	local int iAbility;
+	local bool bHasColumnAbility, bConnectToNextAbility;
+	local string AbilityName, AbilityIcon, BGColor, FGColor;
+
+	AbilityTemplateManager = class'X2AbilityTemplateManager'.static.GetAbilityTemplateManager();
+	Unit = GetUnit();
+	AbilityTree = Unit.GetRankAbilities(Column.Rank);
+
+	for (iAbility = (Page -1) * NUM_ABILITIES_PER_COLUMN; iAbility < Page * NUM_ABILITIES_PER_COLUMN; iAbility++)
+	{
+		AbilityTemplate = AbilityTemplateManager.FindAbilityTemplate(AbilityTree[iAbility].AbilityName);
+		`LOG(iAbility @ AbilityTemplate.DataName,, 'PromotionScreen');
+		if (AbilityTemplate != none)
+		{
+			if (Column.AbilityNames.Find(AbilityTemplate.DataName) == INDEX_NONE)
+			{
+				Column.AbilityNames.AddItem(AbilityTemplate.DataName);
+				`LOG(Column.AbilityNames.Length,, 'PromotionScreen');
+			}
+
+			// The unit is not yet at the rank needed for this column
+			if (!RevealAllAbilities && Column.Rank >= Unit.GetRank())
+			{
+				AbilityName = class'UIUtilities_Text'.static.GetColoredText(m_strAbilityLockedTitle, eUIState_Disabled);
+				AbilityIcon = class'UIUtilities_Image'.const.UnknownAbilityIcon;
+				ButtonState = eUIPromotionState_Locked;
+				FGColor = class'UIUtilities_Colors'.const.BLACK_HTML_COLOR;
+				BGColor = class'UIUtilities_Colors'.const.DISABLED_HTML_COLOR;
+				bConnectToNextAbility = false; // Do not display prereqs for abilities which aren't available yet
+			}
+			else // The ability could be purchased
+			{
+				AbilityName = class'UIUtilities_Text'.static.CapsCheckForGermanScharfesS(AbilityTemplate.LocFriendlyName);
+				AbilityIcon = AbilityTemplate.IconImage;
+
+				if (Unit.HasSoldierAbility(AbilityTemplate.DataName))
+				{
+					// The ability has been purchased
+					ButtonState = eUIPromotionState_Equipped;
+					FGColor = class'UIUtilities_Colors'.const.NORMAL_HTML_COLOR;
+					BGColor = class'UIUtilities_Colors'.const.BLACK_HTML_COLOR;
+					bHasColumnAbility = true;
+				}
+				else if(CanPurchaseAbility(Column.Rank, iAbility, AbilityTemplate.DataName))
+				{
+					// The ability is unlocked and unpurchased, and can be afforded
+					ButtonState = eUIPromotionState_Normal;
+					FGColor = class'UIUtilities_Colors'.const.PERK_HTML_COLOR;
+					BGColor = class'UIUtilities_Colors'.const.BLACK_HTML_COLOR;
+				}
+				else
+				{
+					// The ability is unlocked and unpurchased, but cannot be afforded
+					ButtonState = eUIPromotionState_Normal;
+					FGColor = class'UIUtilities_Colors'.const.BLACK_HTML_COLOR;
+					BGColor = class'UIUtilities_Colors'.const.DISABLED_HTML_COLOR;
+				}
+				
+				// Look ahead to the next rank and check to see if the current ability is a prereq for the next one
+				// If so, turn on the connection arrow between them
+				if (Column.Rank < (class'X2ExperienceConfig'.static.GetMaxRank() - 2) && Unit.GetRank() > (Column.Rank + 1))
+				{
+					bConnectToNextAbility = false;
+					NextRankTree = Unit.GetRankAbilities(Column.Rank + 1);
+					NextAbilityTemplate = AbilityTemplateManager.FindAbilityTemplate(NextRankTree[iAbility].AbilityName);
+					if (NextAbilityTemplate.PrerequisiteAbilities.Length > 0 && NextAbilityTemplate.PrerequisiteAbilities.Find(AbilityTemplate.DataName) != INDEX_NONE)
+					{
+						bConnectToNextAbility = true;
+					}
+				}
+
+				Column.SetAvailable(true);
+			}
+
+			Column.AS_SetIconState(iAbility - ((Page - 1) * NUM_ABILITIES_PER_COLUMN), false, AbilityIcon, AbilityName, ButtonState, FGColor, BGColor, bConnectToNextAbility);
+		}
+		else
+		{
+			Column.AbilityNames.AddItem(''); // Make sure we add empty spots to the name array for getting ability info
+			Column.AS_SetIconState(iAbility - ((Page - 1) * NUM_ABILITIES_PER_COLUMN), false, "", "", ButtonState, FGColor, BGColor, bConnectToNextAbility);
+		}
+	}
+
+	// bsg-nlong (1.25.17): Select the first available/visible ability in the column
+	while(`ISCONTROLLERACTIVE && !Column.AbilityIcons[Column.m_iPanelIndex].bIsVisible)
+	{
+		Column.m_iPanelIndex +=1;
+		if( Column.m_iPanelIndex >= Column.AbilityIcons.Length )
+		{
+			Column.m_iPanelIndex = 0;
+		}
+	}
+	// bsg-nlong (1.25.17): end
+
+	return bHasColumnAbility;
+}
+
 simulated function InitPromotion(StateObjectReference UnitRef, optional bool bInstantTransition)
 {
 	local UIArmory_PromotionHeroColumn Column;
 	local XComGameState_Unit Unit; // bsg-nlong (1.25.17): Used to determine which column we should start highlighting
+
+	Page = 1;
 
 	// If the AfterAction screen is running, let it position the camera
 	AfterActionScreen = UIAfterAction(Movie.Stack.GetScreen(class'UIAfterAction'));
@@ -195,107 +428,6 @@ function int GetAbilityPointCost(int Rank, int Branch)
 	}
 	
 	return AbilityCost;
-}
-
-function bool UpdateAbilityIcons(out UIArmory_PromotionHeroColumn Column)
-{
-	local X2AbilityTemplateManager AbilityTemplateManager;
-	local X2AbilityTemplate AbilityTemplate, NextAbilityTemplate;
-	local array<SoldierClassAbilityType> AbilityTree, NextRankTree;
-	local XComGameState_Unit Unit;
-	local UIPromotionButtonState ButtonState;
-	local int iAbility;
-	local bool bHasColumnAbility, bConnectToNextAbility;
-	local string AbilityName, AbilityIcon, BGColor, FGColor;
-
-	AbilityTemplateManager = class'X2AbilityTemplateManager'.static.GetAbilityTemplateManager();
-	Unit = GetUnit();
-	AbilityTree = Unit.GetRankAbilities(Column.Rank);
-
-	for (iAbility = 0; iAbility < NUM_ABILITIES_PER_COLUMN; iAbility++)
-	{
-		AbilityTemplate = AbilityTemplateManager.FindAbilityTemplate(AbilityTree[iAbility].AbilityName);
-		if (AbilityTemplate != none)
-		{
-			if (Column.AbilityNames.Find(AbilityTemplate.DataName) == INDEX_NONE)
-			{
-				Column.AbilityNames.AddItem(AbilityTemplate.DataName);
-			}
-
-			// The unit is not yet at the rank needed for this column
-			if (!RevealAllAbilities && Column.Rank >= Unit.GetRank())
-			{
-				AbilityName = class'UIUtilities_Text'.static.GetColoredText(m_strAbilityLockedTitle, eUIState_Disabled);
-				AbilityIcon = class'UIUtilities_Image'.const.UnknownAbilityIcon;
-				ButtonState = eUIPromotionState_Locked;
-				FGColor = class'UIUtilities_Colors'.const.BLACK_HTML_COLOR;
-				BGColor = class'UIUtilities_Colors'.const.DISABLED_HTML_COLOR;
-				bConnectToNextAbility = false; // Do not display prereqs for abilities which aren't available yet
-			}
-			else // The ability could be purchased
-			{
-				AbilityName = class'UIUtilities_Text'.static.CapsCheckForGermanScharfesS(AbilityTemplate.LocFriendlyName);
-				AbilityIcon = AbilityTemplate.IconImage;
-
-				if (Unit.HasSoldierAbility(AbilityTemplate.DataName))
-				{
-					// The ability has been purchased
-					ButtonState = eUIPromotionState_Equipped;
-					FGColor = class'UIUtilities_Colors'.const.NORMAL_HTML_COLOR;
-					BGColor = class'UIUtilities_Colors'.const.BLACK_HTML_COLOR;
-					bHasColumnAbility = true;
-				}
-				else if(CanPurchaseAbility(Column.Rank, iAbility, AbilityTemplate.DataName))
-				{
-					// The ability is unlocked and unpurchased, and can be afforded
-					ButtonState = eUIPromotionState_Normal;
-					FGColor = class'UIUtilities_Colors'.const.PERK_HTML_COLOR;
-					BGColor = class'UIUtilities_Colors'.const.BLACK_HTML_COLOR;
-				}
-				else
-				{
-					// The ability is unlocked and unpurchased, but cannot be afforded
-					ButtonState = eUIPromotionState_Normal;
-					FGColor = class'UIUtilities_Colors'.const.BLACK_HTML_COLOR;
-					BGColor = class'UIUtilities_Colors'.const.DISABLED_HTML_COLOR;
-				}
-				
-				// Look ahead to the next rank and check to see if the current ability is a prereq for the next one
-				// If so, turn on the connection arrow between them
-				if (Column.Rank < (class'X2ExperienceConfig'.static.GetMaxRank() - 2) && Unit.GetRank() > (Column.Rank + 1))
-				{
-					bConnectToNextAbility = false;
-					NextRankTree = Unit.GetRankAbilities(Column.Rank + 1);
-					NextAbilityTemplate = AbilityTemplateManager.FindAbilityTemplate(NextRankTree[iAbility].AbilityName);
-					if (NextAbilityTemplate.PrerequisiteAbilities.Length > 0 && NextAbilityTemplate.PrerequisiteAbilities.Find(AbilityTemplate.DataName) != INDEX_NONE)
-					{
-						bConnectToNextAbility = true;
-					}
-				}
-
-				Column.SetAvailable(true);
-			}
-
-			Column.AS_SetIconState(iAbility, false, AbilityIcon, AbilityName, ButtonState, FGColor, BGColor, bConnectToNextAbility);
-		}
-		else
-		{
-			Column.AbilityNames.AddItem(''); // Make sure we add empty spots to the name array for getting ability info
-		}
-	}
-
-	// bsg-nlong (1.25.17): Select the first available/visible ability in the column
-	while(`ISCONTROLLERACTIVE && !Column.AbilityIcons[Column.m_iPanelIndex].bIsVisible)
-	{
-		Column.m_iPanelIndex +=1;
-		if( Column.m_iPanelIndex >= Column.AbilityIcons.Length )
-		{
-			Column.m_iPanelIndex = 0;
-		}
-	}
-	// bsg-nlong (1.25.17): end
-
-	return bHasColumnAbility;
 }
 
 function PreviewAbility(int Rank, int Branch)
