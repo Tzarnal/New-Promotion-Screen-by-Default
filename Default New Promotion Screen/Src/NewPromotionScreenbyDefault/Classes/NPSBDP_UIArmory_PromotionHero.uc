@@ -1,5 +1,8 @@
 class NPSBDP_UIArmory_PromotionHero extends UIArmory_PromotionHero config(PromotionUIMod);
 
+var UIMask				Mask;
+var UIScrollbar		Scrollbar;
+
 struct CustomClassAbilitiesPerRank
 {
 	var name ClassName;
@@ -19,9 +22,68 @@ var config bool RevealAllAbilities;
 var config array<CustomClassAbilitiesPerRank> ClassAbilitiesPerRank;
 var config array<CustomClassAbilityCost> ClassCustomAbilityCost;
 
-var int Page;
+var int Page, MaxPages;
+
+var array<NPSBDP_UIArmory_PromotionHeroColumn> NPSBDP_Columns;
 
 //Override functions
+simulated function InitPromotion(StateObjectReference UnitRef, optional bool bInstantTransition)
+{
+	local XComGameState_Unit Unit; // bsg-nlong (1.25.17): Used to determine which column we should start highlighting
+
+	Page = 1;
+
+	// If the AfterAction screen is running, let it position the camera
+	AfterActionScreen = UIAfterAction(Movie.Stack.GetScreen(class'UIAfterAction'));
+	if (AfterActionScreen != none)
+	{
+		bAfterActionPromotion = true;
+		PawnLocationTag = AfterActionScreen.GetPawnLocationTag(UnitRef, "Blueprint_AfterAction_HeroPromote");
+		CameraTag = GetPromotionBlueprintTag(UnitRef);
+		DisplayTag = name(GetPromotionBlueprintTag(UnitRef));
+	}
+	else
+	{
+		CameraTag = string(default.DisplayTag);
+		DisplayTag = default.DisplayTag;
+	}
+
+	
+
+	// Don't show nav help during tutorial, or during the After Action sequence.
+	bUseNavHelp = class'XComGameState_HeadquartersXCom'.static.IsObjectiveCompleted('T0_M2_WelcomeToArmory') || Movie.Pres.ScreenStack.IsInStack(class'UIAfterAction');
+
+	super.InitArmory(UnitRef, , , , , , bInstantTransition);
+	
+	InitColumns();
+
+	PopulateData();
+
+	RealizeMaskAndScrollbar();
+
+	DisableNavigation(); // bsg-nlong (1.25.17): This and the column panel will have to use manual naviation, so we'll disable the navigation here
+
+	MC.FunctionVoid("AnimateIn");
+
+	// bsg-nlong (1.25.17): Focus a column so the screen loads with an ability highlighted
+	if( `ISCONTROLLERACTIVE )
+	{
+		Unit = XComGameState_Unit(`XCOMHISTORY.GetGameStateForObjectID(UnitReference.ObjectID));
+		if( Unit != none )
+		{
+			m_iCurrentlySelectedColumn = m_iCurrentlySelectedColumn;
+		}
+		else
+		{
+			m_iCurrentlySelectedColumn = 0;
+		}
+
+		NPSBDP_Columns[m_iCurrentlySelectedColumn].OnReceiveFocus();
+	}
+	// bsg-nlong (1.25.17): end
+}
+
+
 simulated function bool OnUnrealCommand(int cmd, int arg)
 {
 	if (!CheckInputIsReleaseOrDirectionRepeat(cmd, arg))
@@ -43,11 +105,19 @@ simulated function bool OnUnrealCommand(int cmd, int arg)
 		case class'UIUtilities_Input'.const.FXS_ARROW_DOWN:
 		case class'UIUtilities_Input'.const.FXS_DPAD_DOWN:
 		case class'UIUtilities_Input'.const.FXS_VIRTUAL_LSTICK_DOWN:
-			if (Page < 3)
+			if (Page < MaxPages)
 			{
 				Page += 1;
 				PopulateData();
 			}
+			break;
+		case class'UIUtilities_Input'.const.FXS_MOUSE_SCROLL_DOWN:
+			if( Scrollbar != none )
+				Scrollbar.OnMouseScrollEvent(1);
+			break;
+		case class'UIUtilities_Input'.const.FXS_MOUSE_SCROLL_UP:
+			if( Scrollbar != none )
+				Scrollbar.OnMouseScrollEvent(-1);
 			break;
 	}
 
@@ -58,7 +128,7 @@ simulated function PopulateData()
 {
 	local XComGameState_Unit Unit;
 	local X2SoldierClassTemplate ClassTemplate;
-	local UIArmory_PromotionHeroColumn Column;
+	local NPSBDP_UIArmory_PromotionHeroColumn Column;
 	local string HeaderString, rankIcon, classIcon;
 	local int iRank, maxRank;
 	local bool bHasColumnAbility, bHighlightColumn;
@@ -68,7 +138,8 @@ simulated function PopulateData()
 	local XComGameState_ResistanceFaction FactionState;
 	local XComGameState_HeadquartersXCom XComHQ;
 	local XComGameState NewGameState;
-	
+	local int Offset;
+
 	Unit = GetUnit();
 	ClassTemplate = Unit.GetSoldierClassTemplate();
 
@@ -125,20 +196,23 @@ simulated function PopulateData()
 	AS_SetAPData(GetSharedAbilityPoints(), Unit.AbilityPoints);
 	AS_SetCombatIntelData(Unit.GetCombatIntelligenceLabel());
 	
+	Offset = (Page - 1) * NUM_ABILITIES_PER_COLUMN;
+
 	AS_SetPathLabels(
 		m_strBranchesLabel,
-		ClassTemplate.AbilityTreeTitles[0 + (Page - 1) * NUM_ABILITIES_PER_COLUMN],
-		ClassTemplate.AbilityTreeTitles[1 + (Page - 1) * NUM_ABILITIES_PER_COLUMN],
-		ClassTemplate.AbilityTreeTitles[2 + (Page - 1) * NUM_ABILITIES_PER_COLUMN],
-		ClassTemplate.AbilityTreeTitles[3 + (Page - 1) * NUM_ABILITIES_PER_COLUMN]
+		ClassTemplate.AbilityTreeTitles[0 + Offset],
+		ClassTemplate.AbilityTreeTitles[1 + Offset],
+		ClassTemplate.AbilityTreeTitles[2 + Offset],
+		ClassTemplate.AbilityTreeTitles[3 + Offset]
 	);
 
 	maxRank = class'X2ExperienceConfig'.static.GetMaxRank();
 
 	for (iRank = 0; iRank < (maxRank - 1); ++iRank)
 	{
-		Column = Columns[iRank];
-		bHasColumnAbility = UpdateAbilityIcons(Column);
+		Column = NPSBDP_Columns[iRank];
+		Column.Offset = Offset;
+		bHasColumnAbility = UpdateAbilityIcons_Override(Column);
 		bHighlightColumn = (!bHasColumnAbility && (iRank+1) == Unit.GetRank());
 
 		Column.AS_SetData(bHighlightColumn, m_strNewRank, class'UIUtilities_Image'.static.GetRankIcon(iRank+1, ClassTemplate.DataName), Caps(class'X2ExperienceConfig'.static.GetRankName(iRank+1, ClassTemplate.DataName)));
@@ -147,7 +221,7 @@ simulated function PopulateData()
 	HidePreview();
 }
 
-function bool UpdateAbilityIcons(out UIArmory_PromotionHeroColumn Column)
+function bool UpdateAbilityIcons_Override(out NPSBDP_UIArmory_PromotionHeroColumn Column)
 {
 	local X2AbilityTemplateManager AbilityTemplateManager;
 	local X2AbilityTemplate AbilityTemplate, NextAbilityTemplate;
@@ -157,21 +231,34 @@ function bool UpdateAbilityIcons(out UIArmory_PromotionHeroColumn Column)
 	local int iAbility;
 	local bool bHasColumnAbility, bConnectToNextAbility;
 	local string AbilityName, AbilityIcon, BGColor, FGColor;
+	local int Offset, NewMaxPages;
 
 	AbilityTemplateManager = class'X2AbilityTemplateManager'.static.GetAbilityTemplateManager();
 	Unit = GetUnit();
 	AbilityTree = Unit.GetRankAbilities(Column.Rank);
 
-	for (iAbility = (Page -1) * NUM_ABILITIES_PER_COLUMN; iAbility < Page * NUM_ABILITIES_PER_COLUMN; iAbility++)
+	NewMaxPages = int(float(AbilityTree.Length / NUM_ABILITIES_PER_COLUMN) + 0.5f);
+	if (NewMaxPages > MaxPages)
+		MaxPages = NewMaxPages;
+
+	`LOG("MaxPages" @ MaxPages,, 'PromotionScreen');
+	// Reinitialize 
+	//Column.InitPromotionHeroColumn(Column.Rank);
+	Column.AbilityNames.Length = 0;
+	
+	`LOG("Create Column" @ Column.Rank,, 'PromotionScreen');
+	Offset = (Page - 1) * NUM_ABILITIES_PER_COLUMN;
+
+	for (iAbility = Offset; iAbility < Page * NUM_ABILITIES_PER_COLUMN; iAbility++)
 	{
 		AbilityTemplate = AbilityTemplateManager.FindAbilityTemplate(AbilityTree[iAbility].AbilityName);
-		`LOG(iAbility @ AbilityTemplate.DataName,, 'PromotionScreen');
+		
 		if (AbilityTemplate != none)
 		{
 			if (Column.AbilityNames.Find(AbilityTemplate.DataName) == INDEX_NONE)
 			{
 				Column.AbilityNames.AddItem(AbilityTemplate.DataName);
-				`LOG(Column.AbilityNames.Length,, 'PromotionScreen');
+				`LOG(iAbility @ "Column.AbilityNames Add" @ AbilityTemplate.DataName @ Column.AbilityNames.Length,, 'PromotionScreen');
 			}
 
 			// The unit is not yet at the rank needed for this column
@@ -233,7 +320,7 @@ function bool UpdateAbilityIcons(out UIArmory_PromotionHeroColumn Column)
 		else
 		{
 			Column.AbilityNames.AddItem(''); // Make sure we add empty spots to the name array for getting ability info
-			Column.AS_SetIconState(iAbility - ((Page - 1) * NUM_ABILITIES_PER_COLUMN), false, "", "", ButtonState, FGColor, BGColor, bConnectToNextAbility);
+			Column.AbilityIcons[iAbility - Offset].Hide();
 		}
 	}
 
@@ -251,90 +338,89 @@ function bool UpdateAbilityIcons(out UIArmory_PromotionHeroColumn Column)
 	return bHasColumnAbility;
 }
 
-simulated function InitPromotion(StateObjectReference UnitRef, optional bool bInstantTransition)
+simulated function RealizeMaskAndScrollbar()
 {
-	local UIArmory_PromotionHeroColumn Column;
-	local XComGameState_Unit Unit; // bsg-nlong (1.25.17): Used to determine which column we should start highlighting
-
-	Page = 1;
-
-	// If the AfterAction screen is running, let it position the camera
-	AfterActionScreen = UIAfterAction(Movie.Stack.GetScreen(class'UIAfterAction'));
-	if (AfterActionScreen != none)
+	// @Todo check for more than 4 rows
+	if(1 == 1)
 	{
-		bAfterActionPromotion = true;
-		PawnLocationTag = AfterActionScreen.GetPawnLocationTag(UnitRef, "Blueprint_AfterAction_HeroPromote");
-		CameraTag = GetPromotionBlueprintTag(UnitRef);
-		DisplayTag = name(GetPromotionBlueprintTag(UnitRef));
-	}
-	else
-	{
-		CameraTag = string(default.DisplayTag);
-		DisplayTag = default.DisplayTag;
-	}
+		//if(Mask == none)
+		//	Mask = Spawn(class'UIMask', self).InitMask();
+		//
+		//Mask.SetMask(self);
+		//Mask.SetSize(width, height);
+		//Mask.SetPosition(0, 0);
 
-	// Don't show nav help during tutorial, or during the After Action sequence.
-	bUseNavHelp = class'XComGameState_HeadquartersXCom'.static.IsObjectiveCompleted('T0_M2_WelcomeToArmory') || Movie.Pres.ScreenStack.IsInStack(class'UIAfterAction');
+		if(Scrollbar == none)
+			Scrollbar = Spawn(class'UIScrollbar', self).InitScrollbar();
 
-	super.InitArmory(UnitRef, , , , , , bInstantTransition);
-	
-	Column = Spawn(class'UIArmory_PromotionHeroColumn', self);
+		Scrollbar.SnapToControl(NPSBDP_Columns[NPSBDP_Columns.Length -1]);
+		Scrollbar.NotifyPercentChange(OnScrollBarChange);
+
+	}
+}
+
+function OnScrollBarChange(float newPercent)
+{
+	//`LOG(GetFuncName() @ newPercent,, 'PromotionScreen');
+	local int OldPage;
+	local float Increment;
+
+	OldPage = Page;
+
+	Increment = 100 / MaxPages;
+
+	//`LOG("OnScrollBarChange Increment" @ Increment,, 'PromotionScreen');
+
+	Page = Max(int(newPercent * 100 / Increment + 0.5f), 1);
+
+	//`LOG("OnScrollBarChange Page" @ Page,, 'PromotionScreen');
+
+	if (OldPage != Page)
+		PopulateData();
+}
+
+function InitColumns()
+{
+	local NPSBDP_UIArmory_PromotionHeroColumn Column;
+	local int Offset;
+
+	NPSBDP_Columns.Length = 0;
+	Offset = (Page - 1) * NUM_ABILITIES_PER_COLUMN;
+
+	Column = Spawn(class'NPSBDP_UIArmory_PromotionHeroColumn', self);
 	Column.MCName = 'rankColumn0';
-	Column.InitPromotionHeroColumn(0);
-	Columns.AddItem(Column);
+	Column.InitPromotionHeroColumn(0, Offset);
+	NPSBDP_Columns.AddItem(Column);
 
-	Column = Spawn(class'UIArmory_PromotionHeroColumn', self);
+	Column = Spawn(class'NPSBDP_UIArmory_PromotionHeroColumn', self);
 	Column.MCName = 'rankColumn1';
-	Column.InitPromotionHeroColumn(1);
-	Columns.AddItem(Column);
+	Column.InitPromotionHeroColumn(1, Offset);
+	NPSBDP_Columns.AddItem(Column);
 
-	Column = Spawn(class'UIArmory_PromotionHeroColumn', self);
+	Column = Spawn(class'NPSBDP_UIArmory_PromotionHeroColumn', self);
 	Column.MCName = 'rankColumn2';
-	Column.InitPromotionHeroColumn(2);
-	Columns.AddItem(Column);
+	Column.InitPromotionHeroColumn(2, Offset);
+	NPSBDP_Columns.AddItem(Column);
 
-	Column = Spawn(class'UIArmory_PromotionHeroColumn', self);
+	Column = Spawn(class'NPSBDP_UIArmory_PromotionHeroColumn', self);
 	Column.MCName = 'rankColumn3';
-	Column.InitPromotionHeroColumn(3);
-	Columns.AddItem(Column);
+	Column.InitPromotionHeroColumn(3, Offset);
+	NPSBDP_Columns.AddItem(Column);
 
-	Column = Spawn(class'UIArmory_PromotionHeroColumn', self);
+	Column = Spawn(class'NPSBDP_UIArmory_PromotionHeroColumn', self);
 	Column.MCName = 'rankColumn4';
-	Column.InitPromotionHeroColumn(4);
-	Columns.AddItem(Column);
+	Column.InitPromotionHeroColumn(4, Offset);
+	NPSBDP_Columns.AddItem(Column);
 
-	Column = Spawn(class'UIArmory_PromotionHeroColumn', self);
+	Column = Spawn(class'NPSBDP_UIArmory_PromotionHeroColumn', self);
 	Column.MCName = 'rankColumn5';
-	Column.InitPromotionHeroColumn(5);
-	Columns.AddItem(Column);
+	Column.InitPromotionHeroColumn(5, Offset);
+	NPSBDP_Columns.AddItem(Column);
 
-	Column = Spawn(class'UIArmory_PromotionHeroColumn', self);
+	Column = Spawn(class'NPSBDP_UIArmory_PromotionHeroColumn', self);
 	Column.MCName = 'rankColumn6';
-	Column.InitPromotionHeroColumn(6);
-	Columns.AddItem(Column);
-
-	PopulateData();
-
-	DisableNavigation(); // bsg-nlong (1.25.17): This and the column panel will have to use manual naviation, so we'll disable the navigation here
-
-	MC.FunctionVoid("AnimateIn");
-
-	// bsg-nlong (1.25.17): Focus a column so the screen loads with an ability highlighted
-	if( `ISCONTROLLERACTIVE )
-	{
-		Unit = XComGameState_Unit(`XCOMHISTORY.GetGameStateForObjectID(UnitReference.ObjectID));
-		if( Unit != none )
-		{
-			m_iCurrentlySelectedColumn = m_iCurrentlySelectedColumn;
-		}
-		else
-		{
-			m_iCurrentlySelectedColumn = 0;
-		}
-
-		Columns[m_iCurrentlySelectedColumn].OnReceiveFocus();
-	}
-	// bsg-nlong (1.25.17): end
+	Column.InitPromotionHeroColumn(6, Offset);
+	NPSBDP_Columns.AddItem(Column);
 }
 
 function bool CanPurchaseAbility(int Rank, int Branch, name AbilityName)
@@ -643,3 +729,46 @@ function int GetCustomAbilityCost(name ClassName, name AbilityName)
 	}
 	return 10;
 }
+
+simulated function SelectNextColumn()
+{
+	local int newIndex;
+
+	newIndex = m_iCurrentlySelectedColumn + 1;
+	if( newIndex >= NPSBDP_Columns.Length )
+	{
+		newIndex = 0;
+	}
+
+	ChangeSelectedColumn(m_iCurrentlySelectedColumn, newIndex);
+}
+
+simulated function SelectPrevColumn()
+{
+	local int newIndex;
+
+	newIndex = m_iCurrentlySelectedColumn - 1;
+	if( newIndex < 0 )
+	{
+		newIndex = NPSBDP_Columns.Length -1;
+	}
+	
+	ChangeSelectedColumn(m_iCurrentlySelectedColumn, newIndex);
+}
+
+simulated function ChangeSelectedColumn(int oldIndex, int newIndex)
+{
+	NPSBDP_Columns[oldIndex].OnLoseFocus();
+	NPSBDP_Columns[newIndex].OnReceiveFocus();
+	m_iCurrentlySelectedColumn = newIndex;
+
+	Movie.Pres.PlayUISound(eSUISound_MenuSelect); //bsg-crobinson (5.11.17): Add sound
+}
+
+
+simulated function OnReceiveFocus()
+{
+	super.OnReceiveFocus();
+	NPSBDP_Columns[m_iCurrentlySelectedColumn].OnReceiveFocus();
+}
+// bsg-nlong (1.25.17): end
