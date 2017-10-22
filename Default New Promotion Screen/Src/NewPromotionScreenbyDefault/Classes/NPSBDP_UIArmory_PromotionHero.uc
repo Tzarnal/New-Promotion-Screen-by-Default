@@ -22,7 +22,7 @@ var config bool RevealAllAbilities;
 var config array<CustomClassAbilitiesPerRank> ClassAbilitiesPerRank;
 var config array<CustomClassAbilityCost> ClassCustomAbilityCost;
 
-var int Page, MaxPages;
+var int Position, MaxPosition;
 
 var array<NPSBDP_UIArmory_PromotionHeroColumn> NPSBDP_Columns;
 
@@ -31,7 +31,7 @@ simulated function InitPromotion(StateObjectReference UnitRef, optional bool bIn
 {
 	local XComGameState_Unit Unit; // bsg-nlong (1.25.17): Used to determine which column we should start highlighting
 
-	Page = 1;
+	Position = 0;
 
 	// If the AfterAction screen is running, let it position the camera
 	AfterActionScreen = UIAfterAction(Movie.Stack.GetScreen(class'UIAfterAction'));
@@ -95,29 +95,29 @@ simulated function bool OnUnrealCommand(int cmd, int arg)
 	{
 		case class'UIUtilities_Input'.const.FXS_ARROW_UP:
 		case class'UIUtilities_Input'.const.FXS_DPAD_UP:
-		case class'UIUtilities_Input'.const.FXS_VIRTUAL_LSTICK_UP:
-			if (Page > 1)
-			{
-				Page -= 1;
-				PopulateData();
-			}
-			break;
-		case class'UIUtilities_Input'.const.FXS_ARROW_DOWN:
-		case class'UIUtilities_Input'.const.FXS_DPAD_DOWN:
-		case class'UIUtilities_Input'.const.FXS_VIRTUAL_LSTICK_DOWN:
-			if (Page < MaxPages)
-			{
-				Page += 1;
-				PopulateData();
-			}
-			break;
+		//case class'UIUtilities_Input'.const.FXS_VIRTUAL_LSTICK_UP:
+		//	if (Page > 1)
+		//	{
+		//		Page -= 1;
+		//		PopulateData();
+		//	}
+		//	break;
+		//case class'UIUtilities_Input'.const.FXS_ARROW_DOWN:
+		//case class'UIUtilities_Input'.const.FXS_DPAD_DOWN:
+		//case class'UIUtilities_Input'.const.FXS_VIRTUAL_LSTICK_DOWN:
+		//	if (Page < MaxPages)
+		//	{
+		//		Page += 1;
+		//		PopulateData();
+		//	}
+		//	break;
 		case class'UIUtilities_Input'.const.FXS_MOUSE_SCROLL_DOWN:
 			if( Scrollbar != none )
-				Scrollbar.OnMouseScrollEvent(1);
+				Scrollbar.OnMouseScrollEvent(-1);
 			break;
 		case class'UIUtilities_Input'.const.FXS_MOUSE_SCROLL_UP:
 			if( Scrollbar != none )
-				Scrollbar.OnMouseScrollEvent(-1);
+				Scrollbar.OnMouseScrollEvent(1);
 			break;
 	}
 
@@ -138,7 +138,6 @@ simulated function PopulateData()
 	local XComGameState_ResistanceFaction FactionState;
 	local XComGameState_HeadquartersXCom XComHQ;
 	local XComGameState NewGameState;
-	local int Offset;
 
 	Unit = GetUnit();
 	ClassTemplate = Unit.GetSoldierClassTemplate();
@@ -196,14 +195,12 @@ simulated function PopulateData()
 	AS_SetAPData(GetSharedAbilityPoints(), Unit.AbilityPoints);
 	AS_SetCombatIntelData(Unit.GetCombatIntelligenceLabel());
 	
-	Offset = (Page - 1) * NUM_ABILITIES_PER_COLUMN;
-
 	AS_SetPathLabels(
 		m_strBranchesLabel,
-		ClassTemplate.AbilityTreeTitles[0 + Offset],
-		ClassTemplate.AbilityTreeTitles[1 + Offset],
-		ClassTemplate.AbilityTreeTitles[2 + Offset],
-		ClassTemplate.AbilityTreeTitles[3 + Offset]
+		ClassTemplate.AbilityTreeTitles[0 + Position],
+		ClassTemplate.AbilityTreeTitles[1 + Position],
+		ClassTemplate.AbilityTreeTitles[2 + Position],
+		ClassTemplate.AbilityTreeTitles[3 + Position]
 	);
 
 	maxRank = class'X2ExperienceConfig'.static.GetMaxRank();
@@ -211,7 +208,7 @@ simulated function PopulateData()
 	for (iRank = 0; iRank < (maxRank - 1); ++iRank)
 	{
 		Column = NPSBDP_Columns[iRank];
-		Column.Offset = Offset;
+		Column.Offset = Position;
 		bHasColumnAbility = UpdateAbilityIcons_Override(Column);
 		bHighlightColumn = (!bHasColumnAbility && (iRank+1) == Unit.GetRank());
 
@@ -231,25 +228,24 @@ function bool UpdateAbilityIcons_Override(out NPSBDP_UIArmory_PromotionHeroColum
 	local int iAbility;
 	local bool bHasColumnAbility, bConnectToNextAbility;
 	local string AbilityName, AbilityIcon, BGColor, FGColor;
-	local int Offset, NewMaxPages;
+	local int NewMaxPosition;
 
 	AbilityTemplateManager = class'X2AbilityTemplateManager'.static.GetAbilityTemplateManager();
 	Unit = GetUnit();
 	AbilityTree = Unit.GetRankAbilities(Column.Rank);
 
-	NewMaxPages = int(float(AbilityTree.Length / NUM_ABILITIES_PER_COLUMN) + 0.5f);
-	if (NewMaxPages > MaxPages)
-		MaxPages = NewMaxPages;
+	NewMaxPosition = Max(AbilityTree.Length - NUM_ABILITIES_PER_COLUMN, NUM_ABILITIES_PER_COLUMN);
+	if (NewMaxPosition > MaxPosition)
+		MaxPosition = NewMaxPosition;
 
-	`LOG("MaxPages" @ MaxPages,, 'PromotionScreen');
+	`LOG("MaxPosition" @ MaxPosition,, 'PromotionScreen');
 	// Reinitialize 
 	//Column.InitPromotionHeroColumn(Column.Rank);
 	Column.AbilityNames.Length = 0;
 	
 	`LOG("Create Column" @ Column.Rank,, 'PromotionScreen');
-	Offset = (Page - 1) * NUM_ABILITIES_PER_COLUMN;
 
-	for (iAbility = Offset; iAbility < Page * NUM_ABILITIES_PER_COLUMN; iAbility++)
+	for (iAbility = Position; iAbility < Position + NUM_ABILITIES_PER_COLUMN; iAbility++)
 	{
 		AbilityTemplate = AbilityTemplateManager.FindAbilityTemplate(AbilityTree[iAbility].AbilityName);
 		
@@ -315,12 +311,12 @@ function bool UpdateAbilityIcons_Override(out NPSBDP_UIArmory_PromotionHeroColum
 				Column.SetAvailable(true);
 			}
 
-			Column.AS_SetIconState(iAbility - ((Page - 1) * NUM_ABILITIES_PER_COLUMN), false, AbilityIcon, AbilityName, ButtonState, FGColor, BGColor, bConnectToNextAbility);
+			Column.AS_SetIconState(iAbility - Position, false, AbilityIcon, AbilityName, ButtonState, FGColor, BGColor, bConnectToNextAbility);
 		}
 		else
 		{
 			Column.AbilityNames.AddItem(''); // Make sure we add empty spots to the name array for getting ability info
-			Column.AbilityIcons[iAbility - Offset].Hide();
+			Column.AbilityIcons[iAbility - Position].Hide();
 		}
 	}
 
@@ -340,8 +336,7 @@ function bool UpdateAbilityIcons_Override(out NPSBDP_UIArmory_PromotionHeroColum
 
 simulated function RealizeMaskAndScrollbar()
 {
-	// @Todo check for more than 4 rows
-	if(1 == 1)
+	if(MaxPosition > NUM_ABILITIES_PER_COLUMN)
 	{
 		//if(Mask == none)
 		//	Mask = Spawn(class'UIMask', self).InitMask();
@@ -354,73 +349,69 @@ simulated function RealizeMaskAndScrollbar()
 			Scrollbar = Spawn(class'UIScrollbar', self).InitScrollbar();
 
 		Scrollbar.SnapToControl(NPSBDP_Columns[NPSBDP_Columns.Length -1]);
-		Scrollbar.NotifyPercentChange(OnScrollBarChange);
-
+		Scrollbar.NotifyValueChange(OnScrollBarChange, 0.0, float(MaxPosition));
 	}
 }
 
-function OnScrollBarChange(float newPercent)
+function OnScrollBarChange(float newValue)
 {
 	//`LOG(GetFuncName() @ newPercent,, 'PromotionScreen');
-	local int OldPage;
-	local float Increment;
+	local int OldPosition;
+	
+	OldPosition = Position;
+	
+	//`LOG("OnScrollBarChange newValue" @ newValue,, 'PromotionScreen');
 
-	OldPage = Page;
+	Position = int(newValue);
 
-	Increment = 100 / MaxPages;
+	//`LOG("OnScrollBarChange Position" @ Position,, 'PromotionScreen');
 
-	//`LOG("OnScrollBarChange Increment" @ Increment,, 'PromotionScreen');
-
-	Page = Max(int(newPercent * 100 / Increment + 0.5f), 1);
-
-	//`LOG("OnScrollBarChange Page" @ Page,, 'PromotionScreen');
-
-	if (OldPage != Page)
+	if (OldPosition != Position)
 		PopulateData();
 }
 
 function InitColumns()
 {
 	local NPSBDP_UIArmory_PromotionHeroColumn Column;
-	local int Offset;
 
 	NPSBDP_Columns.Length = 0;
-	Offset = (Page - 1) * NUM_ABILITIES_PER_COLUMN;
 
 	Column = Spawn(class'NPSBDP_UIArmory_PromotionHeroColumn', self);
 	Column.MCName = 'rankColumn0';
-	Column.InitPromotionHeroColumn(0, Offset);
+	Column.InitPromotionHeroColumn(0, Position);
 	NPSBDP_Columns.AddItem(Column);
 
 	Column = Spawn(class'NPSBDP_UIArmory_PromotionHeroColumn', self);
 	Column.MCName = 'rankColumn1';
-	Column.InitPromotionHeroColumn(1, Offset);
+	Column.InitPromotionHeroColumn(1, Position);
 	NPSBDP_Columns.AddItem(Column);
 
 	Column = Spawn(class'NPSBDP_UIArmory_PromotionHeroColumn', self);
 	Column.MCName = 'rankColumn2';
-	Column.InitPromotionHeroColumn(2, Offset);
+	Column.InitPromotionHeroColumn(2, Position);
 	NPSBDP_Columns.AddItem(Column);
 
 	Column = Spawn(class'NPSBDP_UIArmory_PromotionHeroColumn', self);
 	Column.MCName = 'rankColumn3';
-	Column.InitPromotionHeroColumn(3, Offset);
+	Column.InitPromotionHeroColumn(3, Position);
 	NPSBDP_Columns.AddItem(Column);
 
 	Column = Spawn(class'NPSBDP_UIArmory_PromotionHeroColumn', self);
 	Column.MCName = 'rankColumn4';
-	Column.InitPromotionHeroColumn(4, Offset);
+	Column.InitPromotionHeroColumn(4, Position);
 	NPSBDP_Columns.AddItem(Column);
 
 	Column = Spawn(class'NPSBDP_UIArmory_PromotionHeroColumn', self);
 	Column.MCName = 'rankColumn5';
-	Column.InitPromotionHeroColumn(5, Offset);
+	Column.InitPromotionHeroColumn(5, Position);
 	NPSBDP_Columns.AddItem(Column);
 
 	Column = Spawn(class'NPSBDP_UIArmory_PromotionHeroColumn', self);
 	Column.MCName = 'rankColumn6';
-	Column.InitPromotionHeroColumn(6, Offset);
+	Column.InitPromotionHeroColumn(6, Position);
 	NPSBDP_Columns.AddItem(Column);
+
+	`LOG(Column.X @ Column.Y @ Column.Width @ Column.Height,, 'PromotionScreen');
 }
 
 function bool CanPurchaseAbility(int Rank, int Branch, name AbilityName)
