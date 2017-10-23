@@ -239,11 +239,9 @@ function bool UpdateAbilityIcons_Override(out NPSBDP_UIArmory_PromotionHeroColum
 		MaxPosition = NewMaxPosition;
 
 	`LOG("MaxPosition" @ MaxPosition,, 'PromotionScreen');
-	// Reinitialize 
-	//Column.InitPromotionHeroColumn(Column.Rank);
 	Column.AbilityNames.Length = 0;
 	
-	`LOG("Create Column" @ Column.Rank,, 'PromotionScreen');
+	//`LOG("Create Column" @ Column.Rank,, 'PromotionScreen');
 
 	for (iAbility = Position; iAbility < Position + NUM_ABILITIES_PER_COLUMN; iAbility++)
 	{
@@ -254,7 +252,7 @@ function bool UpdateAbilityIcons_Override(out NPSBDP_UIArmory_PromotionHeroColum
 			if (Column.AbilityNames.Find(AbilityTemplate.DataName) == INDEX_NONE)
 			{
 				Column.AbilityNames.AddItem(AbilityTemplate.DataName);
-				`LOG(iAbility @ "Column.AbilityNames Add" @ AbilityTemplate.DataName @ Column.AbilityNames.Length,, 'PromotionScreen');
+				//`LOG(iAbility @ "Column.AbilityNames Add" @ AbilityTemplate.DataName @ Column.AbilityNames.Length,, 'PromotionScreen');
 			}
 
 			// The unit is not yet at the rank needed for this column
@@ -347,9 +345,12 @@ simulated function RealizeMaskAndScrollbar()
 
 		if(Scrollbar == none)
 			Scrollbar = Spawn(class'UIScrollbar', self).InitScrollbar();
-
-		Scrollbar.SnapToControl(NPSBDP_Columns[NPSBDP_Columns.Length -1]);
-		Scrollbar.NotifyValueChange(OnScrollBarChange, 0.0, float(MaxPosition));
+		//Scrollbar.SnapToControl(NPSBDP_Columns[NPSBDP_Columns.Length -1]);
+		Scrollbar.SetAnchor(class'UIUtilities'.const.ANCHOR_TOP_RIGHT);
+		Scrollbar.SetHeight(450);
+		Scrollbar.SetPosition(-555, 310);
+		
+		Scrollbar.NotifyValueChange(OnScrollBarChange, 0.0, float(MaxPosition) + 0.5);
 	}
 }
 
@@ -412,6 +413,8 @@ function InitColumns()
 	NPSBDP_Columns.AddItem(Column);
 
 	`LOG(Column.X @ Column.Y @ Column.Width @ Column.Height,, 'PromotionScreen');
+	//`LOG(super.X @ super.Y @ super.Width @ super.Height,, 'PromotionScreen');
+	//`LOG(self.Anchor @ super.Y @ super.Width @ super.Height,, 'PromotionScreen');
 }
 
 function bool CanPurchaseAbility(int Rank, int Branch, name AbilityName)
