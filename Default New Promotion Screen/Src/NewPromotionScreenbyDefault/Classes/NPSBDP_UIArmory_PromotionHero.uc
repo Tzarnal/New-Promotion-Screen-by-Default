@@ -1,6 +1,5 @@
 class NPSBDP_UIArmory_PromotionHero extends UIArmory_PromotionHero config(PromotionUIMod);
 
-var UIMask				Mask;
 var UIScrollbar		Scrollbar;
 
 struct CustomClassAbilitiesPerRank
@@ -23,8 +22,6 @@ var config array<CustomClassAbilitiesPerRank> ClassAbilitiesPerRank;
 var config array<CustomClassAbilityCost> ClassCustomAbilityCost;
 
 var int Position, MaxPosition;
-
-var array<NPSBDP_UIArmory_PromotionHeroColumn> NPSBDP_Columns;
 
 //Override functions
 simulated function InitPromotion(StateObjectReference UnitRef, optional bool bInstantTransition)
@@ -59,7 +56,7 @@ simulated function InitPromotion(StateObjectReference UnitRef, optional bool bIn
 
 	PopulateData();
 
-	RealizeMaskAndScrollbar();
+	RealizeScrollbar();
 
 	DisableNavigation(); // bsg-nlong (1.25.17): This and the column panel will have to use manual naviation, so we'll disable the navigation here
 
@@ -78,7 +75,7 @@ simulated function InitPromotion(StateObjectReference UnitRef, optional bool bIn
 			m_iCurrentlySelectedColumn = 0;
 		}
 
-		NPSBDP_Columns[m_iCurrentlySelectedColumn].OnReceiveFocus();
+		Columns[m_iCurrentlySelectedColumn].OnReceiveFocus();
 	}
 	// bsg-nlong (1.25.17): end
 }
@@ -207,7 +204,7 @@ simulated function PopulateData()
 
 	for (iRank = 0; iRank < (maxRank - 1); ++iRank)
 	{
-		Column = NPSBDP_Columns[iRank];
+		Column = NPSBDP_UIArmory_PromotionHeroColumn(Columns[iRank]);
 		Column.Offset = Position;
 		bHasColumnAbility = UpdateAbilityIcons_Override(Column);
 		bHighlightColumn = (!bHasColumnAbility && (iRank+1) == Unit.GetRank());
@@ -332,20 +329,12 @@ function bool UpdateAbilityIcons_Override(out NPSBDP_UIArmory_PromotionHeroColum
 	return bHasColumnAbility;
 }
 
-simulated function RealizeMaskAndScrollbar()
+simulated function RealizeScrollbar()
 {
 	if(MaxPosition > NUM_ABILITIES_PER_COLUMN)
 	{
-		//if(Mask == none)
-		//	Mask = Spawn(class'UIMask', self).InitMask();
-		//
-		//Mask.SetMask(self);
-		//Mask.SetSize(width, height);
-		//Mask.SetPosition(0, 0);
-
 		if(Scrollbar == none)
 			Scrollbar = Spawn(class'UIScrollbar', self).InitScrollbar();
-		//Scrollbar.SnapToControl(NPSBDP_Columns[NPSBDP_Columns.Length -1]);
 		Scrollbar.SetAnchor(class'UIUtilities'.const.ANCHOR_TOP_RIGHT);
 		Scrollbar.SetHeight(450);
 		Scrollbar.SetPosition(-555, 310);
@@ -356,16 +345,11 @@ simulated function RealizeMaskAndScrollbar()
 
 function OnScrollBarChange(float newValue)
 {
-	//`LOG(GetFuncName() @ newPercent,, 'PromotionScreen');
 	local int OldPosition;
 	
 	OldPosition = Position;
-	
-	//`LOG("OnScrollBarChange newValue" @ newValue,, 'PromotionScreen');
 
 	Position = int(newValue);
-
-	//`LOG("OnScrollBarChange Position" @ Position,, 'PromotionScreen');
 
 	if (OldPosition != Position)
 		PopulateData();
@@ -375,46 +359,42 @@ function InitColumns()
 {
 	local NPSBDP_UIArmory_PromotionHeroColumn Column;
 
-	NPSBDP_Columns.Length = 0;
+	Columns.Length = 0;
 
 	Column = Spawn(class'NPSBDP_UIArmory_PromotionHeroColumn', self);
 	Column.MCName = 'rankColumn0';
-	Column.InitPromotionHeroColumn(0, Position);
-	NPSBDP_Columns.AddItem(Column);
+	Column.InitPromotionHeroColumn(0);
+	Columns.AddItem(Column);
 
 	Column = Spawn(class'NPSBDP_UIArmory_PromotionHeroColumn', self);
 	Column.MCName = 'rankColumn1';
-	Column.InitPromotionHeroColumn(1, Position);
-	NPSBDP_Columns.AddItem(Column);
+	Column.InitPromotionHeroColumn(1);
+	Columns.AddItem(Column);
 
 	Column = Spawn(class'NPSBDP_UIArmory_PromotionHeroColumn', self);
 	Column.MCName = 'rankColumn2';
-	Column.InitPromotionHeroColumn(2, Position);
-	NPSBDP_Columns.AddItem(Column);
+	Column.InitPromotionHeroColumn(2);
+	Columns.AddItem(Column);
 
 	Column = Spawn(class'NPSBDP_UIArmory_PromotionHeroColumn', self);
 	Column.MCName = 'rankColumn3';
-	Column.InitPromotionHeroColumn(3, Position);
-	NPSBDP_Columns.AddItem(Column);
+	Column.InitPromotionHeroColumn(3);
+	Columns.AddItem(Column);
 
 	Column = Spawn(class'NPSBDP_UIArmory_PromotionHeroColumn', self);
 	Column.MCName = 'rankColumn4';
-	Column.InitPromotionHeroColumn(4, Position);
-	NPSBDP_Columns.AddItem(Column);
+	Column.InitPromotionHeroColumn(4);
+	Columns.AddItem(Column);
 
 	Column = Spawn(class'NPSBDP_UIArmory_PromotionHeroColumn', self);
 	Column.MCName = 'rankColumn5';
-	Column.InitPromotionHeroColumn(5, Position);
-	NPSBDP_Columns.AddItem(Column);
+	Column.InitPromotionHeroColumn(5);
+	Columns.AddItem(Column);
 
 	Column = Spawn(class'NPSBDP_UIArmory_PromotionHeroColumn', self);
 	Column.MCName = 'rankColumn6';
-	Column.InitPromotionHeroColumn(6, Position);
-	NPSBDP_Columns.AddItem(Column);
-
-	`LOG(Column.X @ Column.Y @ Column.Width @ Column.Height,, 'PromotionScreen');
-	//`LOG(super.X @ super.Y @ super.Width @ super.Height,, 'PromotionScreen');
-	//`LOG(self.Anchor @ super.Y @ super.Width @ super.Height,, 'PromotionScreen');
+	Column.InitPromotionHeroColumn(6);
+	Columns.AddItem(Column);
 }
 
 function bool CanPurchaseAbility(int Rank, int Branch, name AbilityName)
@@ -519,6 +499,9 @@ function PreviewAbility(int Rank, int Branch)
 	local string AbilityIcon, AbilityName, AbilityDesc, AbilityHint, AbilityCost, CostLabel, APLabel, PrereqAbilityNames;
 	local name PrereqAbilityName;
 
+	// NPSBDP Patch
+	Branch += Position;
+
 	Unit = GetUnit();
 	
 	// Ability cost is always displayed, even if the rank hasn't been unlocked yet
@@ -594,6 +577,57 @@ function PreviewAbility(int Rank, int Branch)
 		}		
 	}	
 	AS_SetDescriptionData(AbilityIcon, AbilityName, AbilityDesc, AbilityHint, CostLabel, AbilityCost, APLabel);
+}
+
+simulated function ConfirmAbilitySelection(int Rank, int Branch)
+{
+	local XGParamTag LocTag;
+	local TDialogueBoxData DialogData;
+	local X2AbilityTemplate AbilityTemplate;
+	local X2AbilityTemplateManager AbilityTemplateManager;
+	local array<SoldierClassAbilityType> AbilityTree;
+	local string ConfirmAbilityText;
+	local int AbilityPointCost;
+
+	// NPSBDP Patch
+	Branch += Position;
+
+	PendingRank = Rank;
+	PendingBranch = Branch;
+
+	Movie.Pres.PlayUISound(eSUISound_MenuSelect);
+
+	DialogData.eType = eDialog_Alert;
+	DialogData.bMuteAcceptSound = true;
+	DialogData.strTitle = m_strConfirmAbilityTitle;
+	DialogData.strAccept = class'UIUtilities_Text'.default.m_strGenericYes;
+	DialogData.strCancel = class'UIUtilities_Text'.default.m_strGenericNO;
+	DialogData.fnCallback = ComfirmAbilityCallback;
+
+	AbilityTree = GetUnit().GetRankAbilities(Rank);
+	AbilityTemplateManager = class'X2AbilityTemplateManager'.static.GetAbilityTemplateManager();
+	AbilityTemplate = AbilityTemplateManager.FindAbilityTemplate(AbilityTree[Branch].AbilityName);
+	AbilityPointCost = GetAbilityPointCost(Rank, Branch);
+	
+	LocTag = XGParamTag(`XEXPANDCONTEXT.FindTag("XGParam"));
+	LocTag.StrValue0 = AbilityTemplate.LocFriendlyName;
+	LocTag.IntValue0 = AbilityPointCost;
+	ConfirmAbilityText = `XEXPAND.ExpandString(m_strConfirmAbilityText);
+
+	// If the unit cannot afford the ability on their own, display a warning about spending Shared AP
+	if (AbilityPointCost > GetUnit().AbilityPoints)
+	{
+		LocTag.IntValue0 = AbilityPointCost - GetUnit().AbilityPoints;
+
+		if((AbilityPointCost - GetUnit().AbilityPoints) == 1)
+			ConfirmAbilityText $= "\n\n" $ `XEXPAND.ExpandString(m_strSharedAPWarningSingular);
+		else
+			ConfirmAbilityText $= "\n\n" $ `XEXPAND.ExpandString(m_strSharedAPWarning);
+
+	}
+
+	DialogData.strText = ConfirmAbilityText;
+	Movie.Pres.UIRaiseDialog(DialogData);
 }
 
 //New functions
@@ -724,45 +758,3 @@ function int GetCustomAbilityCost(name ClassName, name AbilityName)
 	return 10;
 }
 
-simulated function SelectNextColumn()
-{
-	local int newIndex;
-
-	newIndex = m_iCurrentlySelectedColumn + 1;
-	if( newIndex >= NPSBDP_Columns.Length )
-	{
-		newIndex = 0;
-	}
-
-	ChangeSelectedColumn(m_iCurrentlySelectedColumn, newIndex);
-}
-
-simulated function SelectPrevColumn()
-{
-	local int newIndex;
-
-	newIndex = m_iCurrentlySelectedColumn - 1;
-	if( newIndex < 0 )
-	{
-		newIndex = NPSBDP_Columns.Length -1;
-	}
-	
-	ChangeSelectedColumn(m_iCurrentlySelectedColumn, newIndex);
-}
-
-simulated function ChangeSelectedColumn(int oldIndex, int newIndex)
-{
-	NPSBDP_Columns[oldIndex].OnLoseFocus();
-	NPSBDP_Columns[newIndex].OnReceiveFocus();
-	m_iCurrentlySelectedColumn = newIndex;
-
-	Movie.Pres.PlayUISound(eSUISound_MenuSelect); //bsg-crobinson (5.11.17): Add sound
-}
-
-
-simulated function OnReceiveFocus()
-{
-	super.OnReceiveFocus();
-	NPSBDP_Columns[m_iCurrentlySelectedColumn].OnReceiveFocus();
-}
-// bsg-nlong (1.25.17): end
