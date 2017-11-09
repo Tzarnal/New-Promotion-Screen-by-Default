@@ -13,7 +13,7 @@ event OnInit(UIScreen Screen)
 	local Name ClassName;
 	
 	foreach IgnoreClassNames(ClassName) { // Specific classes to ignore here so that we can do UIArmory_Promotion without ORs later
-		if (Screen.IsA(ClassName)
+		if (Screen.IsA(ClassName))
 		    return;
 	}
 	
