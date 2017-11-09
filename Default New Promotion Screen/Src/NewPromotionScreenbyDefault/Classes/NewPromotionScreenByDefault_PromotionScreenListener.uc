@@ -1,4 +1,4 @@
-class NewPromotionScreenByDefault_PromotionScreenListener extends UIScreenListener;
+class NewPromotionScreenByDefault_PromotionScreenListener extends UIScreenListener config(PromotionUIMod);
 
 var config array<Name> IgnoreClassNames;
 
