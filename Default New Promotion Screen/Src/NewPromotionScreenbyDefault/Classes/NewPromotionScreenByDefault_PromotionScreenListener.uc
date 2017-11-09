@@ -1,5 +1,7 @@
 class NewPromotionScreenByDefault_PromotionScreenListener extends UIScreenListener;
 
+var config array<Name> IgnoreClassNames;
+
 // This event is triggered after a screen is initialized. This is called after
 // the visuals (if any) are loaded in Flash.
 event OnInit(UIScreen Screen)
@@ -8,10 +10,16 @@ event OnInit(UIScreen Screen)
 	local UIArmory_PromotionHero CustomHeroPromotionUI;
 	local StateObjectReference UnitBeingPromoted;
 	local UIAfterAction AfterActionUI;
-			
-	if (UIArmory_Promotion(Screen) == none || UIArmory_PromotionHero(Screen) != none || UIArmory_PromotionPsiOp(Screen) != none)
-	{		
-		return;		
+	local Name ClassName;
+	
+	foreach IgnoreClassNames(ClassName) { // Specific classes to ignore here so that we can do UIArmory_Promotion without ORs later
+		if (Screen.IsA(ClassName)
+		    return;
+	}
+	
+	if (UIArmory_Promotion(Screen) == none)
+	{
+		return;
 	}
 		
 	//Don't block the tutorial
