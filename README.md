@@ -27,5 +27,9 @@ This mod will try to look at a class' ability data and try to switch between 1, 
 
 Read [this topic](http://steamcommunity.com/workshop/filedetails/discussion/1124609091/1474221865191529084/) for details.
 
+## Extension to the vanilla promotion screen
+* Support for more than 4 ranks through scrollbar
+* Support for the 8th rank (Brigadier)
+
 ## License and Github
 This mods code is available under the MIT license on [Github](https://github.com/Xesyto/New-Promotion-Screen-by-Default)

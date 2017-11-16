@@ -1,25 +1,70 @@
-//---------------------------------------------------------------------------------------
-//  FILE:   XComDownloadableContentInfo_NewPromotionScreenbyDefault.uc                                    
-//           
-//	Use the X2DownloadableContentInfo class to specify unique mod behavior when the 
-//  player creates a new campaign or loads a saved game.
-//  
-//---------------------------------------------------------------------------------------
-//  Copyright (c) 2016 Firaxis Games, Inc. All rights reserved.
-//---------------------------------------------------------------------------------------
-
 class X2DownloadableContentInfo_NewPromotionScreenbyDefault extends X2DownloadableContentInfo;
 
-/// <summary>
-/// This method is run if the player loads a saved game that was created prior to this DLC / Mod being installed, and allows the 
-/// DLC / Mod to perform custom processing in response. This will only be called once the first time a player loads a save that was
-/// create without the content installed. Subsequent saves will record that the content was installed.
-/// </summary>
-static event OnLoadedSavedGame()
-{}
+exec function PSSetXoffsetBG(int AdjustXOffset)
+{
+	local NPSBDP_UIArmory_PromotionHero UI;
+	
+	UI = NPSBDP_UIArmory_PromotionHero(`SCREENSTACK.GetFirstInstanceOf(class'NPSBDP_UIArmory_PromotionHero'));
+	UI.MC.ChildSetNum("bg", "_x", AdjustXOffset);
+}
 
-/// <summary>
-/// Called when the player starts a new campaign while this DLC / Mod is installed
-/// </summary>
-static event InstallNewCampaign(XComGameState StartState)
-{}
+exec function PSSetWidth(int Width)
+{
+	local NPSBDP_UIArmory_PromotionHero UI;
+	
+	UI = NPSBDP_UIArmory_PromotionHero(`SCREENSTACK.GetFirstInstanceOf(class'NPSBDP_UIArmory_PromotionHero'));
+	UI.MC.SetNum("_width", Width);
+}
+
+exec function PSSetXOffset(int AdjustXOffset)
+{
+	local NPSBDP_UIArmory_PromotionHero UI;
+	
+	UI = NPSBDP_UIArmory_PromotionHero(`SCREENSTACK.GetFirstInstanceOf(class'NPSBDP_UIArmory_PromotionHero'));
+	UI.MC.SetNum("_x", UI.MC.GetNum("_x") + AdjustXOffset);
+}
+
+exec function PSSetColumnWidth(int Offset = 200, int Width = 120)
+{
+	local NPSBDP_UIArmory_PromotionHero UI;
+	local int i;
+
+	UI = NPSBDP_UIArmory_PromotionHero(`SCREENSTACK.GetFirstInstanceOf(class'NPSBDP_UIArmory_PromotionHero'));
+	for (i = 0; i < UI.Columns.Length; i++)
+	{
+		if (i == 5 || i ==6)
+			UI.Columns[i].MC.SetNum("_width", Width);
+		//UI.Columns[i].SetX(Offset + (i * Width));
+		
+	}
+}
+
+exec function PSScrollBarSetPos(int X, int Y, int Anchor = -1)
+{
+	local NPSBDP_UIArmory_PromotionHero UI;
+	UI = NPSBDP_UIArmory_PromotionHero(`SCREENSTACK.GetFirstInstanceOf(class'NPSBDP_UIArmory_PromotionHero'));
+
+	UI.Scrollbar.SetX(X);
+	UI.Scrollbar.SetY(Y);
+
+	if (Anchor > -1)
+	{
+		UI.Scrollbar.SetAnchor(Anchor);
+	}
+}
+
+exec function PSScrollBarSetSize(int Width = 0, int Height = 0)
+{
+	local NPSBDP_UIArmory_PromotionHero UI;
+	UI = NPSBDP_UIArmory_PromotionHero(`SCREENSTACK.GetFirstInstanceOf(class'NPSBDP_UIArmory_PromotionHero'));
+
+	if (Width > 0)
+	{
+		UI.Scrollbar.SetWidth(Width);
+	}
+
+	if (Height > 0)
+	{
+		UI.Scrollbar.SetHeight(Height);
+	}
+}
