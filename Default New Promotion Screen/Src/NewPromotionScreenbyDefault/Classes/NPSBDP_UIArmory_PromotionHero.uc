@@ -350,8 +350,8 @@ simulated function bool OnUnrealCommand(int cmd, int arg)
 
 	switch(Cmd)
 	{
-		case class'UIUtilities_Input'.const.FXS_ARROW_UP:
-		case class'UIUtilities_Input'.const.FXS_DPAD_UP:
+		//case class'UIUtilities_Input'.const.FXS_ARROW_UP:
+		//case class'UIUtilities_Input'.const.FXS_DPAD_UP:
 		//case class'UIUtilities_Input'.const.FXS_VIRTUAL_LSTICK_UP:
 		//	if (Page > 1)
 		//	{
