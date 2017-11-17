@@ -343,13 +343,17 @@ simulated function RealizeScrollbar()
 
 simulated function bool OnUnrealCommand(int cmd, int arg)
 {
+	local bool bHandled;
+
 	if (!CheckInputIsReleaseOrDirectionRepeat(cmd, arg))
 	{
 		return false;
 	}
 
+	bHandled = true;
+
 	switch(Cmd)
-	{
+	{				
 		//case class'UIUtilities_Input'.const.FXS_ARROW_UP:
 		//case class'UIUtilities_Input'.const.FXS_DPAD_UP:
 		//case class'UIUtilities_Input'.const.FXS_VIRTUAL_LSTICK_UP:
@@ -371,14 +375,19 @@ simulated function bool OnUnrealCommand(int cmd, int arg)
 		case class'UIUtilities_Input'.const.FXS_MOUSE_SCROLL_DOWN:
 			if( Scrollbar != none )
 				Scrollbar.OnMouseScrollEvent(-1);
+				bHandled = false;
 			break;
 		case class'UIUtilities_Input'.const.FXS_MOUSE_SCROLL_UP:
 			if( Scrollbar != none )
 				Scrollbar.OnMouseScrollEvent(1);
+				bHandled = false;
+			break;
+		default:
+			bHandled = false;
 			break;
 	}
 
-	super.OnUnrealCommand(cmd, arg);
+	return bHandled || super.OnUnrealCommand(cmd, arg);
 }
 
 function OnScrollBarChange(float newValue)
