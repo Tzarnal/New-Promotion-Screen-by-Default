@@ -202,6 +202,7 @@ simulated function PopulateData()
 
 		Column.AS_SetData(bHighlightColumn, m_strNewRank, class'UIUtilities_Image'.static.GetRankIcon(iRank+1, ClassTemplate.DataName), Caps(class'X2ExperienceConfig'.static.GetRankName(iRank+1, ClassTemplate.DataName)));
 	}
+	
 	RealizeScrollbar();
 	HidePreview();
 }
@@ -361,12 +362,24 @@ simulated function RealizeScrollbar()
 	if(MaxPosition > 0)
 	{
 		if(Scrollbar == none)
-		{
+		{			
 			Scrollbar = Spawn(class'UIScrollbar', self).InitScrollbar();
 			Scrollbar.SetAnchor(class'UIUtilities'.const.ANCHOR_TOP_RIGHT);
-			Scrollbar.SetHeight(450);
+			Scrollbar.SetHeight(450);						
 		}
 		Scrollbar.NotifyValueChange(OnScrollBarChange, 0.0, MaxPosition);
+
+		if (HasBrigadierRank())
+		{
+			Scrollbar.SetPosition(-465, 310);
+		}
+		else
+		{
+			Scrollbar.SetPosition(-550, 310);
+		}
+		
+		Scrollbar.MC.SetNum("_alpha", 0);
+		Scrollbar.AddTweenBetween("_alpha", 0, 100, 0.2f, 0.3f);
 	}
 	else if (Scrollbar != none)
 	{
@@ -409,13 +422,11 @@ simulated function bool OnUnrealCommand(int cmd, int arg)
 		//	break;
 		case class'UIUtilities_Input'.const.FXS_MOUSE_SCROLL_DOWN:
 			if( Scrollbar != none )
-				Scrollbar.OnMouseScrollEvent(-1);
-				bHandled = false;
+				Scrollbar.OnMouseScrollEvent(-1);				
 			break;
 		case class'UIUtilities_Input'.const.FXS_MOUSE_SCROLL_UP:
 			if( Scrollbar != none )
-				Scrollbar.OnMouseScrollEvent(1);
-				bHandled = false;
+				Scrollbar.OnMouseScrollEvent(1);				
 			break;
 		default:
 			bHandled = false;
@@ -426,7 +437,7 @@ simulated function bool OnUnrealCommand(int cmd, int arg)
 }
 
 function OnScrollBarChange(float newValue)
-{
+{	
 	local int OldPosition;
 	OldPosition = Position;
 	Position = Clamp(int(newValue), 0, MaxPosition);
@@ -916,9 +927,7 @@ function ResizeScreenForBrigadierRank()
 	MC.ChildSetNum("rankColumn5",		"_x", MC.GetNum("rankColumn5._x") - AdjustXOffset);
 	MC.ChildSetNum("rankColumn6",		"_x", MC.GetNum("rankColumn6._x") - AdjustXOffset);
 	MC.ChildSetNum("rankColumn7",		"_x", MC.GetNum("rankColumn6._x"));
-	MC.ChildSetNum("rankColumn7",		"_y", MC.GetNum("rankColumn6._y"));
-
-	Scrollbar.SetPosition(-465, 310);
+	MC.ChildSetNum("rankColumn7",		"_y", MC.GetNum("rankColumn6._y"));	
 }
 
 
@@ -965,9 +974,6 @@ function AnimatIn()
 
 	MC.ChildSetNum("combatIntelValue", "_alpha", 0);
 	AddChildTweenBetween("combatIntelValue", "_alpha", 0, 100, 0.2f, 0.3f);
-
-	Scrollbar.MC.SetNum("_alpha", 0);
-	Scrollbar.AddTweenBetween("_alpha", 0, 100, 0.2f, 0.3f);
 
 	// Commented out because it cause the elements to disappear
 	// Don't know why this happens
