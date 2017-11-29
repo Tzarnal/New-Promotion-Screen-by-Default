@@ -1,7 +1,5 @@
 class NPSBDP_UIArmory_PromotionHeroColumn extends UIArmory_PromotionHeroColumn;
 
-var int Offset;
-
 function OnAbilityInfoClicked(UIButton Button)
 {
 	local X2AbilityTemplate AbilityTemplate;
@@ -13,12 +11,12 @@ function OnAbilityInfoClicked(UIButton Button)
 	PromotionScreen = NPSBDP_UIArmory_PromotionHero(Screen);
 
 	AbilityTemplateManager = class'X2AbilityTemplateManager'.static.GetAbilityTemplateManager();
-
+	
 	foreach InfoButtons(InfoButton, idx)
 	{
 		if (InfoButton == Button)
 		{
-			AbilityTemplate = AbilityTemplateManager.FindAbilityTemplate(AbilityNames[Offset + idx]);
+			AbilityTemplate = AbilityTemplateManager.FindAbilityTemplate(AbilityNames[idx]);
 			break;
 		}
 	}

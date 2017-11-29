@@ -208,8 +208,7 @@ simulated function PopulateData()
 	maxRank = Columns.Length; //class'X2ExperienceConfig'.static.GetMaxRank();
 	for (iRank = 0; iRank < maxRank; iRank++)
 	{
-		Column = NPSBDP_UIArmory_PromotionHeroColumn(Columns[iRank]);
-		Column.Offset = Position;
+		Column = NPSBDP_UIArmory_PromotionHeroColumn(Columns[iRank]);		
 		bHasColumnAbility = UpdateAbilityIcons_Override(Column);
 		bHighlightColumn = (!bHasColumnAbility && (iRank+1) == Unit.GetRank());
 
