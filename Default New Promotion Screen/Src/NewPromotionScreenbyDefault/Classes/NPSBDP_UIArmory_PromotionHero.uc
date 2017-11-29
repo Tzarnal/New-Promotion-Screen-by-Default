@@ -83,6 +83,19 @@ simulated function InitPromotion(StateObjectReference UnitRef, optional bool bIn
 
 	PopulateData();
 
+	//Only set position and animate in the scrollbar once after data population. Prevents scrollbar flicker on scrolling.
+	if (HasBrigadierRank())
+	{
+		Scrollbar.SetPosition(-465, 310);
+	}
+	else
+	{
+		Scrollbar.SetPosition(-550, 310);
+	}
+		
+	Scrollbar.MC.SetNum("_alpha", 0);
+	Scrollbar.AddTweenBetween("_alpha", 0, 100, 0.2f, 0.3f);
+
 	DisableNavigation(); // bsg-nlong (1.25.17): This and the column panel will have to use manual naviation, so we'll disable the navigation here
 
 	// bsg-nlong (1.25.17): Focus a column so the screen loads with an ability highlighted
@@ -384,18 +397,6 @@ simulated function RealizeScrollbar()
 			Scrollbar.SetHeight(450);						
 		}
 		Scrollbar.NotifyValueChange(OnScrollBarChange, 0.0, MaxPosition);
-
-		if (HasBrigadierRank())
-		{
-			Scrollbar.SetPosition(-465, 310);
-		}
-		else
-		{
-			Scrollbar.SetPosition(-550, 310);
-		}
-		
-		Scrollbar.MC.SetNum("_alpha", 0);
-		Scrollbar.AddTweenBetween("_alpha", 0, 100, 0.2f, 0.3f);
 	}
 	else if (Scrollbar != none)
 	{
