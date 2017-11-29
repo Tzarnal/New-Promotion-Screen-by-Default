@@ -12,6 +12,12 @@ event OnInit(UIScreen Screen)
 	local UIAfterAction AfterActionUI;
 	local Name ClassName;
 
+	//Don't block the tutorial
+	if(!class'XComGameState_HeadquartersXCom'.static.IsObjectiveCompleted('T0_M2_WelcomeToArmory') )
+	{		
+		return;
+	}
+
 	if (UIArmory_Promotion(Screen) == none)
 	{
 		return;
@@ -21,14 +27,7 @@ event OnInit(UIScreen Screen)
 		if (Screen.IsA(ClassName))
 		    return;
 	}
-
-		
-	//Don't block the tutorial
-	if(!class'XComGameState_HeadquartersXCom'.static.IsObjectiveCompleted('T0_M2_WelcomeToArmory') )
-	{		
-		return;
-	}
-		
+	
 	//Remove original screen	
 	Screen.Movie.Stack.Pop(Screen);	
 
