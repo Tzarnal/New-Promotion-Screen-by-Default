@@ -209,6 +209,8 @@ simulated function PopulateData()
 	for (iRank = 0; iRank < maxRank; iRank++)
 	{
 		Column = NPSBDP_UIArmory_PromotionHeroColumn(Columns[iRank]);		
+		Column.Offset = Position;
+
 		bHasColumnAbility = UpdateAbilityIcons_Override(Column);
 		bHighlightColumn = (!bHasColumnAbility && (iRank+1) == Unit.GetRank());
 
@@ -537,7 +539,7 @@ function bool CanPurchaseAbility(int Rank, int Branch, name AbilityName)
 
 	//Emulate Resistance Hero behaviour
 	if(AbilityRanks == 0)
-	{		
+	{				
 		return (Rank < UnitState.GetRank() && CanAffordAbility(Rank, Branch) && UnitState.MeetsAbilityPrerequisites(AbilityName));
 	}
 
@@ -818,11 +820,6 @@ function int GetAbilitiesPerRank(XComGameState_Unit UnitState)
 		{
 			AbilitiesPerRank = ClassTemplate.GetAbilitySlots(RankIndex).Length;
 		}
-	}
-	
-	if(bAWC && AbilitiesPerRank == 4)
-	{
-		return 3;
 	}
 
 	return AbilitiesPerRank;
