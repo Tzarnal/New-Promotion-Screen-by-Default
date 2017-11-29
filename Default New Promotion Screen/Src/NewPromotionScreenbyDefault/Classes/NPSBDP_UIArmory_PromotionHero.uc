@@ -132,8 +132,8 @@ simulated function PopulateData()
 
 	FactionState = Unit.GetResistanceFaction();
 	
-	rankIcon = class'UIUtilities_Image'.static.GetRankIcon(Unit.GetRank(), ClassTemplate.DataName);
-	classIcon = ClassTemplate.IconImage;
+	rankIcon = class'UIUtilities_Image'.static.GetRankIcon(Unit.GetRank(), ClassTemplate.DataName);	
+	classIcon = GetClassIcon(Unit);
 
 	HeaderString = m_strAbilityHeader;
 	if (Unit.GetRank() != 1 && Unit.HasAvailablePerksToAssign())
@@ -205,6 +205,22 @@ simulated function PopulateData()
 	
 	RealizeScrollbar();
 	HidePreview();
+}
+
+function HidePreview()
+{
+	// Start Issue #106
+	local XComGameState_Unit Unit;
+	local string ClassName, ClassDesc;
+
+	Unit = GetUnit();
+
+	ClassName = Caps(GetClassDisplayName(Unit));
+	ClassDesc = GetClassSummary(Unit);
+	// End Issue #106
+
+	// By default when not previewing an ability, display class data
+	AS_SetDescriptionData("", ClassName, ClassDesc, "", "", "", "");
 }
 
 function bool HasBrigadierRank()
@@ -1099,4 +1115,54 @@ simulated function AddChildTweenBetween(string ChildPath, String Prop, float Sta
 	}
 
 	MC.EndOp();
+}
+
+
+//HL Helper methods to check installed Hl version and get class icon, name and rankicon through HL or do a fallback ot default if HL is not installed
+
+static function bool IsCHHLMinVersionInstalled(int iMajor, int iMinor)
+{
+	local X2StrategyElementTemplate VersionTemplate;
+
+	VersionTemplate = class'X2StrategyElementTemplateManager'.static.GetStrategyElementTemplateManager().FindStrategyElementTemplate('CHXComGameVersion');
+	if (VersionTemplate == none)
+	{
+		return false;
+	}
+	else
+	{
+		// DANGER TERRITORY
+		// if this runs without the CHHL or equivalent installed, it crashes
+		return CHXComGameVersionTemplate(VersionTemplate).MajorVersion > iMajor ||  (CHXComGameVersionTemplate(VersionTemplate).MajorVersion == iMajor && CHXComGameVersionTemplate(VersionTemplate).MinorVersion >= iMinor);
+	}
+}
+
+static function string GetClassIcon(XComGameState_Unit Unit)
+{
+	if (IsCHHLMinVersionInstalled(1, 5))
+	{
+		return Unit.GetSoldierClassIcon();
+	}
+
+	return Unit.GetSoldierClassTemplate().IconImage;
+}
+
+static function string GetClassDisplayName(XComGameState_Unit Unit)
+{
+	if (IsCHHLMinVersionInstalled(1, 5))
+	{
+		return Unit.GetSoldierClassDisplayName();
+	}
+
+	return Unit.GetSoldierClassTemplate().DisplayName;
+}
+
+static function string GetClassSummary(XComGameState_Unit Unit)
+{
+	if (IsCHHLMinVersionInstalled(1, 5))
+	{
+		return Unit.GetSoldierClassSummary();
+	}
+
+	return Unit.GetSoldierClassTemplate().ClassSummary;
 }
