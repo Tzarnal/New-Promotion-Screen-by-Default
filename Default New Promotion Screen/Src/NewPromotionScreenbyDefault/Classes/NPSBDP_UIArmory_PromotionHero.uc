@@ -718,7 +718,7 @@ function PreviewAbility(int Rank, int Branch)
 
 				if (MutuallyExclusiveNames != "")
 				{
-					AbilityDesc = class'UIUtilities_Text'.static.GetColoredText(m_strMutuallyExclusiveAbility @ MutuallyExclusiveNames, eUIState_Warning) $ "\n" $ AbilityDesc;
+					AbilityDesc = class'UIUtilities_Text'.static.GetColoredText(m_strMutuallyExclusive @ MutuallyExclusiveNames, eUIState_Warning) $ "\n" $ AbilityDesc;
 				}
 
 				if (PrereqAbilityNames != "")
