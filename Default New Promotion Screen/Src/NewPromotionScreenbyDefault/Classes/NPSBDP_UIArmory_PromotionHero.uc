@@ -188,6 +188,13 @@ simulated function PopulateData()
 		}
 	}
 
+	// Display the "soldier has a new class" popup if required (issue #1)
+	if (Unit.bNeedsNewClassPopup)
+	{
+		`HQPRES.UIClassEarned(Unit.GetReference());
+		Unit.bNeedsNewClassPopup = false;  //Prevent from queueing up more of these popups on toggling soldiers.
+	}
+
 	AS_SetRank(rankIcon);
 	AS_SetClass(classIcon);
 	AS_SetFaction(FactionState.GetFactionIcon());
