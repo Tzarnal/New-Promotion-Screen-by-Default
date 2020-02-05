@@ -5,8 +5,8 @@
     <Name>New Promotion Screen by Default</Name>
     <Description>Shows the fancy new Hero promotion screen by default even when promoting normal soldiers.</Description>
     <SteamPublishID>0</SteamPublishID>
-    <AssemblyName>Default New Promotion Screen</AssemblyName>
-    <RootNamespace>Default New Promotion Screen</RootNamespace>
+    <AssemblyName>CommunityPromotionScreen</AssemblyName>
+    <RootNamespace>CommunityPromotionScreen</RootNamespace>
   </PropertyGroup>
   <ItemGroup>
     <Folder Include="Config\" />
