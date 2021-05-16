@@ -21,6 +21,14 @@ var config bool RevealAllAbilities;
 var config array<CustomClassAbilitiesPerRank> ClassAbilitiesPerRank;
 var config array<CustomClassAbilityCost> ClassCustomAbilityCost;
 
+// Vars for Issue #7
+var localized string ReasonLacksPrerequisites;
+var localized string ReasonNoClassPerkPurchased;
+var localized string ReasonNoTrainingCenter;
+var localized string ReasonNotEnoughAP;
+var localized string ReasonNotHighEnoughRank;
+// End Issue #7
+
 // Position is the number by which we offset all ability indices.
 // 0 <= Position <= MaxPosition
 var int Position, MaxPosition;
@@ -540,32 +548,53 @@ function InitColumns()
 
 function bool CanPurchaseAbility(int Rank, int Branch, name AbilityName)
 {
+	local string DummyString;
+	return CanPurchaseAbilityEx(Rank, Branch, AbilityName, DummyString);
+}
+
+// Issue #7: Include the reason why an ability was locked in `ReasonLockedText`
+function bool CanPurchaseAbilityEx(int Rank, int Branch, name AbilityName, out string ReasonLockedText)
+{
 	local XComGameState_Unit UnitState;
-	local int AbilityRanks; //Rank is 0 indexed but AbilityRanks is not. This means a >= comparison requies no further adjustments
+	local int AbilityRanks; //Rank is 0 indexed but AbilityRanks is not. This means a >= comparison requires no further adjustments
 	
 	UnitState = GetUnit();
 	AbilityRanks = GetAbilitiesPerRank(UnitState);
 
-	//Emulate Resistance Hero behaviour
-	if(AbilityRanks == 0)
-	{				
-		return (Rank < UnitState.GetRank() && CanAffordAbility(Rank, Branch) && UnitState.MeetsAbilityPrerequisites(AbilityName));
+	if (AbilityRanks > 0)
+	{
+		// Don't allow non hero units to purchase abilities with AP without a training center
+		// The branch is checked here so that "No Training Center" takes priority over "No
+		// class perk picked" as a reason.
+		if((UnitState.HasPurchasedPerkAtRank(Rank) || Branch >= AbilityRanks) && !UnitState.IsResistanceHero() && !CanSpendAP())
+		{
+			ReasonLockedText = ReasonNoTrainingCenter;
+			return false;
+		}
+
+		// Don't allow non hero units to purchase abilities on the xcom perk row before getting a rankup perk
+		if(!UnitState.HasPurchasedPerkAtRank(Rank) && !UnitState.IsResistanceHero() && Branch >= AbilityRanks )
+		{
+			ReasonLockedText = ReasonNoClassPerkPurchased;
+			return false;
+		}
 	}
 
-	//Don't allow non hero units to purchase abilities with AP without a training center
-	if(UnitState.HasPurchasedPerkAtRank(Rank) && !UnitState.IsResistanceHero() && !CanSpendAP())
+	// Normal behaviour and hero promotion emulation (ability ranks == 0)
+	if (Rank >= UnitState.GetRank())
 	{
-		return false;
+		ReasonLockedText = ReasonNotHighEnoughRank;
 	}
-		
-	//Don't allow non hero units to purchase abilities on the xcom perk row before getting a rankup perk
-	if(!UnitState.HasPurchasedPerkAtRank(Rank) && !UnitState.IsResistanceHero() && Branch >= AbilityRanks )
+	else if (!CanAffordAbility(Rank, Branch))
 	{
-		return false;
+		ReasonLockedText = ReasonNotEnoughAP;
+	}
+	else if (!UnitState.MeetsAbilityPrerequisites(AbilityName))
+	{
+		ReasonLockedText = ReasonLacksPrerequisites;
 	}
 
-	//Normal behaviour
-	return (Rank < UnitState.GetRank() && CanAffordAbility(Rank, Branch) && UnitState.MeetsAbilityPrerequisites(AbilityName));
+	return ReasonLockedText == "";
 }
 
 function int GetAbilityPointCost(int Rank, int Branch)
@@ -637,7 +666,7 @@ function PreviewAbility(int Rank, int Branch)
 	local X2AbilityTemplate AbilityTemplate, PreviousAbilityTemplate;
 	local XComGameState_Unit Unit;
 	local array<SoldierClassAbilityType> AbilityTree;
-	local string AbilityIcon, AbilityName, AbilityDesc, AbilityHint, AbilityCost, CostLabel, APLabel, PrereqAbilityNames;
+	local string AbilityIcon, AbilityName, AbilityDesc, DisabledReason, AbilityCost, CostLabel, APLabel, PrereqAbilityNames;
 	local name PrereqAbilityName;
 	// Variable for Issue #128
 	local string MutuallyExclusiveNames;
@@ -678,7 +707,10 @@ function PreviewAbility(int Rank, int Branch)
 			AbilityIcon = AbilityTemplate.IconImage;
 			AbilityName = AbilityTemplate.LocFriendlyName != "" ? AbilityTemplate.LocFriendlyName : ("Missing 'LocFriendlyName' for " $ AbilityTemplate.DataName);
 			AbilityDesc = AbilityTemplate.HasLongDescription() ? AbilityTemplate.GetMyLongDescription(, Unit) : ("Missing 'LocLongDescription' for " $ AbilityTemplate.DataName);
-			AbilityHint = "";
+
+			// Start Issue #7
+			CanPurchaseAbilityEx(Rank, Branch, AbilityTemplate.DataName, DisabledReason);
+			// End Issue #7
 
 			// Don't display cost information if the ability has already been purchased
 			if (Unit.HasSoldierAbility(AbilityTemplate.DataName))
@@ -686,6 +718,7 @@ function PreviewAbility(int Rank, int Branch)
 				CostLabel = "";
 				AbilityCost = "";
 				APLabel = "";
+				DisabledReason = ""; // Issue #7
 			}
 			else if (AbilityTemplate.PrerequisiteAbilities.Length > 0)
 			{
@@ -740,10 +773,16 @@ function PreviewAbility(int Rank, int Branch)
 			AbilityIcon = "";
 			AbilityName = string(AbilityTree[Branch].AbilityName);
 			AbilityDesc = "Missing template for ability '" $ AbilityTree[Branch].AbilityName $ "'";
-			AbilityHint = "";
+			DisabledReason = "";
 		}		
 	}	
-	AS_SetDescriptionData(AbilityIcon, AbilityName, AbilityDesc, AbilityHint, CostLabel, AbilityCost, APLabel);
+
+	if (DisabledReason != "")
+	{
+		AbilityDesc $= "\n" $ class'UIUtilities_Text'.static.GetColoredText(DisabledReason, eUIState_Warning);
+	}
+
+	AS_SetDescriptionData(AbilityIcon, AbilityName, AbilityDesc, "", CostLabel, AbilityCost, APLabel);
 }
 
 simulated function ConfirmAbilitySelection(int Rank, int Branch)
