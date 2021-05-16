@@ -34,6 +34,7 @@
     <Content Include="Src\NewPromotionScreenbyDefault\Classes\NPSBDP_UIArmory_PromotionHeroColumn.uc">
       <SubType>Content</SubType>
     </Content>
+    <Content Include="Src\NewPromotionScreenbyDefault\Classes\X2EventListener_PromotionScreenOverrides.uc" />
     <Content Include="Src\NewPromotionScreenbyDefault\Classes\X2DownloadableContentInfo_NewPromotionScreenbyDefault.uc" />
   </ItemGroup>
   <Import Project="$(MSBuildLocalExtensionPath)\XCOM2.targets" />
