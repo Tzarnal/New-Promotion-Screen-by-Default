@@ -666,7 +666,7 @@ function PreviewAbility(int Rank, int Branch)
 	local X2AbilityTemplate AbilityTemplate, PreviousAbilityTemplate;
 	local XComGameState_Unit Unit;
 	local array<SoldierClassAbilityType> AbilityTree;
-	local string AbilityIcon, AbilityName, AbilityDesc, AbilityHint, AbilityCost, CostLabel, APLabel, PrereqAbilityNames;
+	local string AbilityIcon, AbilityName, AbilityDesc, DisabledReason, AbilityCost, CostLabel, APLabel, PrereqAbilityNames;
 	local name PrereqAbilityName;
 	// Variable for Issue #128
 	local string MutuallyExclusiveNames;
@@ -709,7 +709,7 @@ function PreviewAbility(int Rank, int Branch)
 			AbilityDesc = AbilityTemplate.HasLongDescription() ? AbilityTemplate.GetMyLongDescription(, Unit) : ("Missing 'LocLongDescription' for " $ AbilityTemplate.DataName);
 
 			// Start Issue #7
-			CanPurchaseAbilityEx(Rank, Branch, AbilityTemplate.DataName, AbilityHint);
+			CanPurchaseAbilityEx(Rank, Branch, AbilityTemplate.DataName, DisabledReason);
 			// End Issue #7
 
 			// Don't display cost information if the ability has already been purchased
@@ -718,7 +718,7 @@ function PreviewAbility(int Rank, int Branch)
 				CostLabel = "";
 				AbilityCost = "";
 				APLabel = "";
-				AbilityHint = ""; // Issue #7
+				DisabledReason = ""; // Issue #7
 			}
 			else if (AbilityTemplate.PrerequisiteAbilities.Length > 0)
 			{
@@ -773,10 +773,16 @@ function PreviewAbility(int Rank, int Branch)
 			AbilityIcon = "";
 			AbilityName = string(AbilityTree[Branch].AbilityName);
 			AbilityDesc = "Missing template for ability '" $ AbilityTree[Branch].AbilityName $ "'";
-			AbilityHint = "";
+			DisabledReason = "";
 		}		
 	}	
-	AS_SetDescriptionData(AbilityIcon, AbilityName, AbilityDesc, AbilityHint, CostLabel, AbilityCost, APLabel);
+
+	if (DisabledReason != "")
+	{
+		AbilityDesc $= "\n" $ class'UIUtilities_Text'.static.GetColoredText(DisabledReason, eUIState_Warning);
+	}
+
+	AS_SetDescriptionData(AbilityIcon, AbilityName, AbilityDesc, "", CostLabel, AbilityCost, APLabel);
 }
 
 simulated function ConfirmAbilitySelection(int Rank, int Branch)
