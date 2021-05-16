@@ -15,6 +15,7 @@ struct CustomClassAbilityCost
 	var int AbilityCost;
 };
 
+var config bool bLog;
 var config bool APRequiresTrainingCenter;
 var config bool RevealAllAbilities;
 
@@ -41,7 +42,7 @@ simulated function OnInit()
 {
 	super.OnInit();
 
-	`LOG(self.Class.name @ GetFuncName(),, 'PromotionScreen');
+	`LOG(self.Class.name @ GetFuncName(), bLog, 'PromotionScreen');
 
 	if (HasBrigadierRank())
 	{
@@ -61,7 +62,7 @@ simulated function InitPromotion(StateObjectReference UnitRef, optional bool bIn
 {
 	local XComGameState_Unit Unit; // bsg-nlong (1.25.17): Used to determine which column we should start highlighting
 
-	`LOG(self.Class.name @ GetFuncName(),, 'PromotionScreen');
+	`LOG(self.Class.name @ GetFuncName(), bLog, 'PromotionScreen');
 
 	Position = 0;
 
@@ -260,7 +261,7 @@ function bool HasBrigadierRank()
 	
 	Unit = GetUnit();
 	
-	`LOG(self.Class.name @ GetFuncName() @ Unit.GetFullName() @ Unit.AbilityTree.Length,, 'PromotionScreen');
+	`LOG(self.Class.name @ GetFuncName() @ Unit.GetFullName() @ Unit.AbilityTree.Length, bLog, 'PromotionScreen');
 
 	return Unit.AbilityTree.Length > 7;
 }
@@ -288,12 +289,12 @@ function bool UpdateAbilityIcons_Override(out NPSBDP_UIArmory_PromotionHeroColum
 	// MaxPosition is the maximum value for Position
 	MaxPosition = Max(AbilityTree.Length - NUM_ABILITIES_PER_COLUMN, MaxPosition);
 
-	//`LOG("MaxPosition" @ MaxPosition,, 'PromotionScreen');
+	//`LOG("MaxPosition" @ MaxPosition, bLog, 'PromotionScreen');
 	Column.AbilityNames.Length = 0;
 	
 	//for (iAbility = 0; iAbility < AbilityTree.Length; iAbility++)
 	//{
-	//	`LOG("Create Column" @ Column.Rank @ AbilityTree[iAbility].AbilityName,, 'PromotionScreen');
+	//	`LOG("Create Column" @ Column.Rank @ AbilityTree[iAbility].AbilityName, bLog, 'PromotionScreen');
 	//}
 
 
@@ -306,7 +307,7 @@ function bool UpdateAbilityIcons_Override(out NPSBDP_UIArmory_PromotionHeroColum
 			if (Column.AbilityNames.Find(AbilityTemplate.DataName) == INDEX_NONE)
 			{
 				Column.AbilityNames.AddItem(AbilityTemplate.DataName);
-				//`LOG(iAbility @ "Column.AbilityNames Add" @ AbilityTemplate.DataName @ Column.AbilityNames.Length,, 'PromotionScreen');
+				//`LOG(iAbility @ "Column.AbilityNames Add" @ AbilityTemplate.DataName @ Column.AbilityNames.Length, bLog, 'PromotionScreen');
 			}
 
 			// The unit is not yet at the rank needed for this column
