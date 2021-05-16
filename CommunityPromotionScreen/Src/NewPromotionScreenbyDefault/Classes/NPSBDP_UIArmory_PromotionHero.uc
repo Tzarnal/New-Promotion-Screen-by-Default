@@ -604,32 +604,17 @@ function int GetAbilityPointCost(int Rank, int Branch)
 	local array<SoldierClassAbilityType> AbilityTree;
 	local bool bPowerfulAbility;
 	local int AbilityRanks; //Rank is 0 indexed but AbilityRanks is not. This means a >= comparison requies no further adjustments
-	local Name ClassName;
 	local int AbilityCost;
 
 	UnitState = GetUnit();
 	AbilityTree = UnitState.GetRankAbilities(Rank);	
-	bPowerfulAbility = (class'X2StrategyGameRulesetDataStructures'.default.PowerfulAbilities.Find(AbilityTree[Branch].AbilityName) != INDEX_NONE);
-	AbilityRanks = 2;
-	ClassName = UnitState.GetSoldierClassTemplateName();	
+
+	if (GetCustomAbilityCost(UnitState, AbilityTree[Branch].AbilityName, AbilityCost))
+	{
+		return AbilityCost;
+	}
+
 	AbilityRanks = GetAbilitiesPerRank(UnitState);
-
-
-	//Default ability cost
-	AbilityCost = class'X2StrategyGameRulesetDataStructures'.default.AbilityPointCosts[Rank];
-
-	//Powerfull ability override ( 25 AP )
-	if(bPowerfulAbility && Branch >= AbilityRanks)
-	{
-		AbilityCost = class'X2StrategyGameRulesetDataStructures'.default.PowerfulAbilityPointCost;
-	}
-
-	//Custom Class Ability Cost Override
-	if( HasCustomAbilityCost(ClassName, AbilityTree[Branch].AbilityName) )
-	{
-		AbilityCost = GetCustomAbilityCost(ClassName, AbilityTree[Branch].AbilityName);
-	}
-
 	if (!UnitState.IsResistanceHero() && AbilityRanks != 0)
 	{
 		if (!UnitState.HasPurchasedPerkAtRank(Rank) && Branch < AbilityRanks)
@@ -638,27 +623,49 @@ function int GetAbilityPointCost(int Rank, int Branch)
 			// free promotion ability if they "bought" it through the Armory
 			return 0;
 		}
-		/*else if (bPowerfulAbility && Branch >= AbilityRanks)
-		{
-			// All powerful shared AWC abilities for base game soldiers have an increased cost, 
-			// excluding any abilities they have in their normal progression tree
-			return class'X2StrategyGameRulesetDataStructures'.default.PowerfulAbilityPointCost;
-		}*/
 	}
 
-	// All Colonel level abilities for emulated Faction Heroes and any powerful XCOM abilities have increased cost for Faction Heroes
+	bPowerfulAbility = (class'X2StrategyGameRulesetDataStructures'.default.PowerfulAbilities.Find(AbilityTree[Branch].AbilityName) != INDEX_NONE);
+	// Use "poweful ability" cost in following situations:	
+
+	// 1. This is an "AWC" (XCOM row) ability:
+	if (bPowerfulAbility && Branch >= AbilityRanks)
+	{
+		AbilityCost = class'X2StrategyGameRulesetDataStructures'.default.PowerfulAbilityPointCost;
+	}
+
+	// 2. All Colonel level abilities for emulated Faction Heroes and any powerful XCOM abilities have increased cost for Faction Heroes
 	if (AbilityRanks == 0 && (bPowerfulAbility || (Rank >= 6 && Branch < 3)) && !HasBrigadierRank())
 	{
 		return class'X2StrategyGameRulesetDataStructures'.default.PowerfulAbilityPointCost;
 	}
 
-	// All Colonel level abilities for Faction Heroes and any powerful XCOM abilities have increased cost for Faction Heroes
+	// 3. All Colonel level abilities for Faction Heroes and any powerful XCOM abilities have increased cost for Faction Heroes
 	if (UnitState.IsResistanceHero() && (bPowerfulAbility || (Rank >= 6 && Branch < 3)) && !HasBrigadierRank())
 	{
 		return class'X2StrategyGameRulesetDataStructures'.default.PowerfulAbilityPointCost;
 	}
 	
-	return AbilityCost;
+	// Otherwise use default ability cost.
+	return class'X2StrategyGameRulesetDataStructures'.default.AbilityPointCosts[Rank];
+}
+
+function bool GetCustomAbilityCost(const XComGameState_Unit UnitState, const name AbilityName, out int AbilityCost)
+{
+	local name ClassName;
+	local int i;
+
+	ClassName = UnitState.GetSoldierClassTemplateName();
+
+	for (i = 0; i < ClassCustomAbilityCost.Length; i++)
+	{
+		if (ClassCustomAbilityCost[i].ClassName == ClassName && ClassCustomAbilityCost[i].AbilityName == AbilityName)
+		{
+			AbilityCost = ClassCustomAbilityCost[i].AbilityCost;
+			return true;
+		}
+	}
+	return false;
 }
 
 function PreviewAbility(int Rank, int Branch)
@@ -872,92 +879,40 @@ function bool CanSpendAP()
 	return `XCOMHQ.HasFacilityByName('RecoveryCenter');
 }
 
-function int GetAbilitiesPerRank(XComGameState_Unit UnitState)
-{
-	local Name ClassName;
-    local int AbilitiesPerRank, RankIndex;
-	local bool bAWC;
+function int GetAbilitiesPerRank(const XComGameState_Unit UnitState)
+{	
 	local X2SoldierClassTemplate ClassTemplate;
+    local int AbilitiesPerRank;
+	local int RankIndex;
 
-	ClassName = UnitState.GetSoldierClassTemplateName();	
-
-	if( HasCustomAbilitiesPerRank(ClassName) )
+	if (GetCustomAbilitiesPerRank(UnitState, AbilitiesPerRank))
 	{
-		return GetCustomAbilitiesPerRank(ClassName);
+		return AbilitiesPerRank;
 	}
 
 	ClassTemplate = UnitState.GetSoldierClassTemplate();
-	bAWC = ClassTemplate.bAllowAWCAbilities;
 
-	for(RankIndex = 1; RankIndex < ClassTemplate.GetMaxConfiguredRank(); RankIndex++)
+	// Start with RankIndex = 1 so we don't count squaddie perks.
+	// Main purpose of this function is to figure out the placement of the XCOM perk row
+	for (RankIndex = 1; RankIndex < ClassTemplate.GetMaxConfiguredRank(); RankIndex++)
 	{
-		if(ClassTemplate.GetAbilitySlots(RankIndex).Length > AbilitiesPerRank)
-		{
-			AbilitiesPerRank = ClassTemplate.GetAbilitySlots(RankIndex).Length;
-		}
+		AbilitiesPerRank = Max(AbilitiesPerRank, ClassTemplate.GetAbilitySlots(RankIndex).Length);
 	}
 
 	return AbilitiesPerRank;
 }
 
-function bool HasCustomAbilitiesPerRank(name ClassName)
+function bool GetCustomAbilitiesPerRank(const XComGameState_Unit UnitState, out int AbilitiesPerRank)
 {
-	local int i;
+	local int Index;
 
-	for(i = 0; i < ClassAbilitiesPerRank.Length; ++i)
-	{				
-		if(ClassAbilitiesPerRank[i].ClassName == ClassName)
-		{
-			return true;
-		}
-	}
-
-	return false;
-}
-
-function int GetCustomAbilitiesPerRank(name ClassName)
-{
-	local int i;
-
-	for(i = 0; i < ClassAbilitiesPerRank.Length; ++i)
+	Index = ClassAbilitiesPerRank.Find('ClassName', UnitState.GetSoldierClassTemplateName());
+	if (Index != INDEX_NONE)
 	{
-		if(ClassAbilitiesPerRank[i].ClassName == ClassName)
-		{
-			return ClassAbilitiesPerRank[i].AbilitiesPerRank;
-		}
-	
+		AbilitiesPerRank = ClassAbilitiesPerRank[Index].AbilitiesPerRank;
+		return true;
 	}
-	return 2;
-}
-
-function bool HasCustomAbilityCost(name ClassName, name AbilityName)
-{
-	local int i;
-
-	for(i = 0; i < ClassCustomAbilityCost.Length; ++i)
-	{				
-		if(ClassCustomAbilityCost[i].ClassName == ClassName && ClassCustomAbilityCost[i].AbilityName == AbilityName)
-		{
-			return true;
-		}
-	}
-
 	return false;
-}
-
-function int GetCustomAbilityCost(name ClassName, name AbilityName)
-{
-	local int i;
-
-	for(i = 0; i < ClassCustomAbilityCost.Length; ++i)
-	{
-		if(ClassCustomAbilityCost[i].ClassName == ClassName && ClassCustomAbilityCost[i].AbilityName == AbilityName)
-		{
-			return ClassCustomAbilityCost[i].AbilityCost;
-		}
-	
-	}
-	return 10;
 }
 
 function ResizeScreenForBrigadierRank()
