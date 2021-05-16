@@ -1,2 +1,6 @@
 [NPSBDP_UIArmory_PromotionHero]
-m_strMutuallyExclusive="Mutually exclusive with:"
+ReasonNotEnoughAP=Not enough AP
+ReasonLacksPrerequisites=Missing prequisites
+ReasonNoClassPerkPurchased=No class ability picked at this rank
+ReasonNoTrainingCenter=No Training Center built
+ReasonNotHighEnoughRank=Not high enough rank
